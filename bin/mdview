@@ -1,0 +1,9 @@
+#!/usr/bin/python3
+import sys
+from pathlib import Path
+
+source = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(source if (source / "mdview" / "app.py").exists() else source / "share" / "mdview"))
+from mdview.app import Application
+
+raise SystemExit(Application().run(sys.argv))

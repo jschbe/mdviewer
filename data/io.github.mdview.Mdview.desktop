@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=mdview
+GenericName=Markdown Viewer
+Comment=Read Markdown documents
+Exec=mdview %F
+Icon=io.github.mdview.Mdview
+Terminal=false
+Categories=GNOME;GTK;Utility;Viewer;
+MimeType=text/markdown;text/x-markdown;
+StartupNotify=true
+Keywords=Markdown;Read;Document;
