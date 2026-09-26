@@ -1,6 +1,7 @@
 """Native application shell; rendering lives in render.py."""
 
 import json
+import logging
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -12,13 +13,19 @@ gi.require_version("WebKit", "6.0")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, WebKit  # noqa: E402
 
 from .render import read_document, render  # noqa: E402
+from .state import load_state, save_state  # noqa: E402
 
 APP_ID = "io.github.mdview.Mdview"
 
 
 class Window(Adw.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="mdview", default_width=960, default_height=760)
+        self.state_path = Path(GLib.get_user_state_dir()) / "mdview" / "window.json"
+        state = load_state(self.state_path)
+        super().__init__(application=app, title="mdview",
+                         default_width=state["width"], default_height=state["height"])
+        if state["maximized"]:
+            self.maximize()
         self.path = None
         self.codes = []
         self.monitor = None
@@ -206,6 +213,7 @@ class Window(Adw.ApplicationWindow):
         return True
 
     def cleanup(self, *_):
+        self.save_window_state()
         self.closed = True
         if self.monitor:
             self.monitor.cancel()
@@ -213,6 +221,13 @@ class Window(Adw.ApplicationWindow):
             GLib.source_remove(self.pending_reload)
         self.style.disconnect(self.theme_handler)
         return False
+
+    def save_window_state(self):
+        width, height = self.get_default_size()
+        try:
+            save_state(self.state_path, width, height, self.is_maximized())
+        except OSError as exc:
+            logging.warning("Could not save window state: %s", exc)
 
 
 class Application(Adw.Application):
@@ -233,6 +248,13 @@ class Application(Adw.Application):
 
     def window(self):
         return self.get_active_window() or Window(self)
+
+    def do_shutdown(self):
+        # Application.quit() (Ctrl+Q) does not emit window close-request.
+        window = self.get_active_window()
+        if window is not None and not window.closed:
+            window.save_window_state()
+        Adw.Application.do_shutdown(self)
 
     def do_activate(self):
         self.window().present()

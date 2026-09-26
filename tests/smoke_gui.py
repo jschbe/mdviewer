@@ -1,6 +1,7 @@
 """Optional integration test: run from the project root with a working display."""
 
 import sys
+import os
 import tempfile
 from pathlib import Path
 
@@ -8,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from mdview.app import Adw, Application, Gio, GLib, WebKit, Window
 
 temporary = tempfile.TemporaryDirectory()
+os.environ["XDG_STATE_HOME"] = temporary.name
 path = Path(temporary.name) / "smoke.md"
 path.write_text('# Smoke\n\n```python\nprint("日本語")\n```\n\n' + 'Paragraph.\n\n' * 150)
 app = Application()

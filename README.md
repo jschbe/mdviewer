@@ -28,6 +28,12 @@ GNOME's light/dark preference is followed automatically. Each fenced code block
 has a Copy button; the desktop clipboard receives only the original code text.
 Files must be UTF-8 (an optional BOM is accepted).
 
+The window's normal size and maximized state are restored on launch. State is
+saved to `$XDG_STATE_HOME/mdview/window.json` (normally
+`~/.local/state/mdview/window.json`) on close or Ctrl+Q. With multiple windows,
+the last closed window wins; Ctrl+Q saves the active window. Missing or invalid
+state falls back to the default size. Delete this file to reset the window.
+
 The document's parent directory is monitored, including atomic file replacements.
 Reloads preserve the vertical pixel offset; substantial edits can move the text
 at that offset. An unreadable file shows a toast and leaves the previous document
@@ -56,13 +62,17 @@ Install `base-devel` if your system is not already configured for `makepkg`:
 ```sh
 sudo pacman -S --needed base-devel
 make dist
-cp dist/mdview-0.1.0.tar.gz packaging/
+cp dist/mdview-1.0.1.tar.gz packaging/
 cd packaging
 makepkg -f
-sudo pacman -U mdview-0.1.0-1-any.pkg.tar.zst
+sudo pacman -U mdview-1.0.1-1-any.pkg.tar.zst
 ```
 
 The PKGBUILD uses a locally generated source archive (hence `SKIP` for its checksum).
+Release versions in `mdview/__init__.py` and `packaging/PKGBUILD` match the Git tag
+without its `v` prefix (currently `v1.0.1`). `make dist` reads the application
+version automatically. For future releases, update both version fields and these
+example commands, build and test, then tag the release commit as `vX.Y.Z`.
 It runs the unit tests before packaging. It installs the command, assets, desktop
 entry and icon under `/usr`; pacman's desktop integration hooks update the caches.
 After installation:
@@ -123,6 +133,7 @@ mdview/
   __main__.py
   app.py
   render.py
+  state.py
   assets/
     bridge.js
     style.css
@@ -132,6 +143,7 @@ data/
 packaging/PKGBUILD
 tests/
   test_render.py
+  test_state.py
   smoke_gui.py
 Makefile
 README.md

@@ -1,5 +1,6 @@
 PREFIX ?= /usr
 PYTHON ?= python3
+VERSION := $(shell $(PYTHON) -c 'from mdview import __version__; print(__version__)')
 
 .PHONY: run test install dist
 run:
@@ -16,4 +17,4 @@ install:
 	install -Dm644 LICENSE $(DESTDIR)$(PREFIX)/share/licenses/mdview/LICENSE
 dist:
 	mkdir -p dist
-	tar --transform='s,^,mdview-0.1.0/,' -czf dist/mdview-0.1.0.tar.gz mdview/*.py mdview/assets bin data tests/*.py Makefile README.md LICENSE
+	tar --transform='s,^,mdview-$(VERSION)/,' -czf dist/mdview-$(VERSION).tar.gz mdview/*.py mdview/assets bin data tests/*.py Makefile README.md LICENSE
