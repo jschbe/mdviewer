@@ -12,6 +12,6 @@ document.addEventListener("click", (event) => {
 window.mdviewCopied = (index) => {
   const button = document.querySelector(`button[data-copy="${index}"]`);
   if (!button) return;
-  button.textContent = "Copied";
-  setTimeout(() => { button.textContent = "Copy"; }, 1400);
+  button.textContent = button.dataset.copiedLabel;
+  setTimeout(() => { button.textContent = button.dataset.copyLabel; }, 1400);
 };

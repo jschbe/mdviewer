@@ -15,6 +15,8 @@ gi.require_version("Adw", "1")
 gi.require_version("WebKit", "6.0")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, WebKit  # noqa: E402
 
+from . import __version__  # noqa: E402
+from .i18n import gettext as _  # noqa: E402
 from .recent import load_recent, remember_file  # noqa: E402
 from .render import UnsupportedDocument, read_document, render  # noqa: E402
 from .session import load_session, save_session  # noqa: E402
@@ -54,18 +56,18 @@ class DocumentView(Gtk.Box):
         self.web_handlers = [
             self.web.connect("decide-policy", self.decide_policy),
             self.web.connect("permission-request", lambda _web, request: (request.deny(), True)[1]),
-            self.web.connect("context-menu", lambda *_: True),
+            self.web.connect("context-menu", lambda *_unused: True),
             self.web.connect("load-changed", self.loaded),
-            self.web.connect("web-process-terminated", lambda *_: self.error("The renderer stopped. Try Reload.")),
+            self.web.connect("web-process-terminated", lambda *_unused: self.error(_("The renderer stopped. Try Reload."))),
         ]
         self.append(self.web)
-        self.web.load_html(render("# mdview\n\nOpen a Markdown file with **Ctrl+O**.", Path.cwd(), dark=self.style.get_dark()).html, "about:blank")
+        self.web.load_html(render("# mdview\n\n" + _("Open a Markdown file with **Ctrl+O**."), Path.cwd(), dark=self.style.get_dark()).html, "about:blank")
 
     def js(self, script, callback=None):
         if not self.closed:
             self.web.evaluate_javascript(script, -1, None, None, None, callback, None)
 
-    def theme_changed(self, *_):
+    def theme_changed(self, *_unused):
         self.js("document.documentElement.className = " + json.dumps("dark" if self.style.get_dark() else "light"))
 
     def copy_code(self, _manager, value):
@@ -76,7 +78,7 @@ class DocumentView(Gtk.Box):
             self.get_clipboard().set(self.codes[index])
             self.js(f"window.mdviewCopied({index})")
         except (ValueError, TypeError, GLib.Error):
-            self.error("Could not copy this code block.")
+            self.error(_("Could not copy this code block."))
 
     def load(self, path, preserve, *, remember=True):
         try:
@@ -85,7 +87,7 @@ class DocumentView(Gtk.Box):
             self.error(str(exc))
             return False
         except (OSError, UnicodeError, ValueError) as exc:
-            self.error(f"Cannot open {path.name}: {exc}")
+            self.error(_("Cannot open {name}: {error}").format(name=path.name, error=exc))
             return False
         self.generation += 1
         generation = self.generation
@@ -103,7 +105,7 @@ class DocumentView(Gtk.Box):
                 try:
                     remember_file(self.window.recent_path, path)
                 except OSError as exc:
-                    logging.warning("Could not save recent files: %s", exc)
+                    logging.warning(_("Could not save recent files: %s"), exc)
             if changed:
                 self.watch()
 
@@ -136,7 +138,7 @@ class DocumentView(Gtk.Box):
             self.monitor = Gio.File.new_for_path(str(self.path.parent)).monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
             self.monitor.connect("changed", self.file_changed)
         except GLib.Error as exc:
-            self.error(f"Automatic reload unavailable: {exc.message}")
+            self.error(_("Automatic reload unavailable: {error}").format(error=exc.message))
 
     def file_changed(self, _monitor, file, other, _event):
         if not any(item and item.get_path() == str(self.path) for item in (file, other)):
@@ -168,14 +170,14 @@ class DocumentView(Gtk.Box):
                 if path.suffix.lower() in (".md", ".markdown"):
                     self.window.open_file(Gio.File.new_for_path(str(path)))
                 else:
-                    self.error("Only Markdown file links can open here.")
+                    self.error(_("Only Markdown file links can open here."))
         return True
 
     def link_opened(self, _source, result):
         try:
             Gio.AppInfo.launch_default_for_uri_finish(result)
         except GLib.Error as exc:
-            self.error(f"Cannot open link: {exc.message}")
+            self.error(_("Cannot open link: {error}").format(error=exc.message))
 
     def error(self, message):
         if not self.closed:
@@ -229,7 +231,7 @@ class Window(Adw.ApplicationWindow):
                      if button not in ("icon", "menu"))
             for side in layout.split(":")
         ))
-        self.info_button = Gtk.MenuButton(tooltip_text="About mdview", has_frame=False)
+        self.info_button = Gtk.MenuButton(tooltip_text=_("About mdview"), has_frame=False)
         icon_path = Path(__file__).resolve().parent.parent / "data" / f"{APP_ID}.svg"
         icon = (Gtk.Image.new_from_file(str(icon_path)) if icon_path.is_file()
                 else Gtk.Image.new_from_icon_name(APP_ID))
@@ -240,13 +242,16 @@ class Window(Adw.ApplicationWindow):
         title = Gtk.Label(label="mdview")
         title.add_css_class("title-1")
         info.append(title)
-        info.append(Gtk.Label(label="simple md file viewer"))
+        version = Gtk.Label(label=f"v{__version__}")
+        version.add_css_class("dim-label")
+        info.append(version)
+        info.append(Gtk.Label(label=_("simple md file viewer")))
         credits = Gtk.Label(label="© 2026 Jochen Schmitt")
         credits.add_css_class("dim-label")
         info.append(credits)
         info.append(Gtk.LinkButton(uri="https://www.gnu.org/licenses/gpl-3.0.html",
-                                   label="GNU GPL v3.0 or later"))
-        warranty = Gtk.Label(label="Free software, provided without warranty.")
+                                   label=_("GNU GPL v3.0 or later")))
+        warranty = Gtk.Label(label=_("Free software, provided without warranty."))
         warranty.add_css_class("dim-label")
         info.append(warranty)
         self.info_button.set_popover(Gtk.Popover(child=info))
@@ -254,22 +259,38 @@ class Window(Adw.ApplicationWindow):
         open_controls = Gtk.Box(spacing=0)
         open_controls.add_css_class("linked")
         self.recent_button = Gtk.MenuButton(direction=Gtk.ArrowType.DOWN,
-                                            tooltip_text="Recently opened files")
+                                            tooltip_text=_("Recently opened files"))
         recent_popover = Gtk.Popover(halign=Gtk.Align.START)
         recent_popover.connect("show", self.populate_recent)
         self.recent_button.set_popover(recent_popover)
-        open_button = Gtk.Button(label="Open", tooltip_text="Open (Ctrl+O)")
-        open_button.connect("clicked", lambda *_: self.choose_file())
+        open_button = Gtk.Button(label=_("Open"), tooltip_text=_("Open (Ctrl+O)"))
+        open_button.connect("clicked", lambda *_unused: self.choose_file())
         open_controls.append(open_button)
         open_controls.append(self.recent_button)
         header.pack_start(open_controls)
         self.new_file_button = Gtk.Button(icon_name="tab-new-symbolic",
-                                          tooltip_text="Open another file (Ctrl+T)")
-        self.new_file_button.connect("clicked", lambda *_: self.choose_file())
+                                          tooltip_text=_("Open another file (Ctrl+T)"))
+        self.new_file_button.connect("clicked", lambda *_unused: self.choose_file())
         header.pack_start(self.new_file_button)
-        self.reload_button = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text="Reload (Ctrl+R)", sensitive=False)
-        self.reload_button.connect("clicked", lambda *_: self.reload())
+        self.reload_button = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text=_("Reload (Ctrl+R)"), sensitive=False)
+        self.reload_button.connect("clicked", lambda *_unused: self.reload())
         header.pack_end(self.reload_button)
+        menu = Gio.Menu()
+        self.output_actions = []
+        for name, label, callback in (
+            ("export-pdf", _("Export as PDF"), self.choose_pdf),
+            ("print", _("Print"), self.print_document),
+        ):
+            action = Gio.SimpleAction.new(name, None)
+            action.set_enabled(False)
+            action.connect("activate", lambda _action, _parameter, run=callback: run())
+            self.add_action(action)
+            self.output_actions.append(action)
+            menu.append(label, f"win.{name}")
+        self.menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic",
+                                          tooltip_text=_("Main menu"), menu_model=menu)
+        header.pack_end(self.menu_button)
+        self.print_operations = set()
         box.append(header)
         self.heading = Adw.WindowTitle(title="mdview")
         header.set_title_widget(self.heading)
@@ -322,15 +343,15 @@ class Window(Adw.ApplicationWindow):
         if self.closed:
             return GLib.SOURCE_REMOVE
         dialog = Adw.MessageDialog(transient_for=self, modal=True, destroy_with_parent=True,
-                                   heading="Files could not be reopened",
-                                   body="The following files could not be restored:")
+                                   heading=_("Files could not be reopened"),
+                                   body=_("The following files could not be restored:"))
         details = Gtk.Label(label="\n\n".join(failures), selectable=True, wrap=True,
                             xalign=0, max_width_chars=65)
         scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER,
                                      max_content_height=300, propagate_natural_height=True,
                                      child=details)
         dialog.set_extra_child(scroller)
-        dialog.add_response("close", "Close")
+        dialog.add_response("close", _("Close"))
         dialog.set_default_response("close")
         dialog.set_close_response("close")
         dialog.present()
@@ -343,14 +364,14 @@ class Window(Adw.ApplicationWindow):
         try:
             save_session(self.session_path, paths, active)
         except OSError as exc:
-            logging.warning("Could not save open tabs: %s", exc)
+            logging.warning(_("Could not save open tabs: %s"), exc)
 
     def populate_recent(self, popover):
         items = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4,
                         margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
         recent = load_recent(self.recent_path)
         if not recent:
-            items.append(Gtk.Label(label="No recently opened files", margin_top=12,
+            items.append(Gtk.Label(label=_("No recently opened files"), margin_top=12,
                                    margin_bottom=12))
         for filename in recent:
             path = Path(filename)
@@ -369,10 +390,10 @@ class Window(Adw.ApplicationWindow):
 
     def choose_file(self):
         # Native/portal choosers do not expose window sizing to the application.
-        dialog = Gtk.FileChooserDialog(title="Open Markdown", transient_for=self,
+        dialog = Gtk.FileChooserDialog(title=_("Open Markdown"), transient_for=self,
                                        modal=True, destroy_with_parent=True, resizable=True,
                                        action=Gtk.FileChooserAction.OPEN, select_multiple=True)
-        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Open", Gtk.ResponseType.ACCEPT)
+        dialog.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL, _("Open"), Gtk.ResponseType.ACCEPT)
         dialog.set_default_response(Gtk.ResponseType.ACCEPT)
         surface = self.get_surface()
         monitor = self.get_display().get_monitor_at_surface(surface) if surface else None
@@ -381,11 +402,11 @@ class Window(Adw.ApplicationWindow):
             width, height = geometry.width * 2 // 3, geometry.height * 2 // 3
         else:
             width, height = 800, 600
-        markdown = Gtk.FileFilter(name="Markdown files")
+        markdown = Gtk.FileFilter(name=_("Markdown files"))
         for pattern in ("*.md", "*.markdown", "*.MD"):
             markdown.add_pattern(pattern)
         dialog.add_filter(markdown)
-        everything = Gtk.FileFilter(name="All files")
+        everything = Gtk.FileFilter(name=_("All files"))
         everything.add_pattern("*")
         dialog.add_filter(everything)
 
@@ -422,7 +443,7 @@ class Window(Adw.ApplicationWindow):
         self.selection_changed()
         return document
 
-    def selection_changed(self, *_):
+    def selection_changed(self, *_unused):
         document = self.active_document
         path = document.path if document else None
         self.heading.set_title(path.name if path else "mdview")
@@ -430,6 +451,95 @@ class Window(Adw.ApplicationWindow):
         self.heading.set_tooltip_text(str(path) if path else None)
         self.set_title(f"{path.name} — mdview" if path else "mdview")
         self.reload_button.set_sensitive(path is not None)
+        for action in self.output_actions:
+            action.set_enabled(path is not None)
+
+    def choose_pdf(self):
+        document = self.active_document
+        if not document or not document.path:
+            return
+        if document.web.is_loading():
+            self.error(_("Please wait until the document has finished loading."))
+            return
+        dialog = Gtk.FileChooserDialog(title=_("Export as PDF"), transient_for=self,
+                                       modal=True, destroy_with_parent=True,
+                                       action=Gtk.FileChooserAction.SAVE)
+        dialog.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL, _("Export"), Gtk.ResponseType.ACCEPT)
+        dialog.set_default_response(Gtk.ResponseType.ACCEPT)
+        dialog.set_current_name(document.path.with_suffix(".pdf").name)
+        dialog.set_current_folder(Gio.File.new_for_path(str(document.path.parent)))
+        pdf_filter = Gtk.FileFilter(name=_("PDF documents"))
+        pdf_filter.add_pattern("*.pdf")
+        dialog.add_filter(pdf_filter)
+
+        def response(chooser, result):
+            if result == Gtk.ResponseType.ACCEPT:
+                target = chooser.get_file()
+                if target:
+                    self.export_pdf(document, target)
+            chooser.destroy()
+
+        dialog.connect("response", response)
+        dialog.present()
+
+    def export_pdf(self, document, target):
+        if document.closed or document.web.is_loading():
+            self.error(_("The document is no longer available or is still loading."))
+            return
+        filename = target.get_path()
+        if filename is None:
+            self.error(_("Choose a local file for PDF export."))
+            return
+        if Path(filename).resolve() == document.path.resolve():
+            self.error(_("Choose a different filename to preserve the source document."))
+            return
+        operation = WebKit.PrintOperation.new(document.web)
+        settings = Gtk.PrintSettings()
+        settings.set_printer("Print to File")
+        settings.set("output-file-format", "pdf")
+        settings.set("output-uri", target.get_uri())
+        operation.set_print_settings(settings)
+        operation.set_page_setup(Gtk.PageSetup())
+        self.track_print(operation, _("Could not export PDF"), _("PDF exported: {name}").format(name=Path(filename).name))
+        operation.print_()
+
+    def print_document(self):
+        document = self.active_document
+        if not document or not document.path:
+            return
+        if document.web.is_loading():
+            self.error(_("Please wait until the document has finished loading."))
+            return
+        operation = WebKit.PrintOperation.new(document.web)
+        cleanup = self.track_print(operation, _("Could not print document"))
+        # WebKit handles the selected printer, paper size, margins and pagination.
+        response = operation.run_dialog(self)
+        if response == WebKit.PrintOperationResponse.CANCEL:
+            cleanup()
+
+    def track_print(self, operation, error_prefix, success_message=None):
+        self.print_operations.add(operation)
+        errors = []
+
+        def cleanup():
+            if operation in self.print_operations:
+                self.print_operations.remove(operation)
+                operation.disconnect(failed_handler)
+                operation.disconnect(finished_handler)
+
+        def failed(_operation, error):
+            errors.append(error.message)
+            if not self.closed:
+                self.error(f"{error_prefix}: {error.message}")
+
+        def finished(_operation):
+            cleanup()
+            if success_message and not errors and not self.closed:
+                self.toast.add_toast(Adw.Toast.new(success_message))
+
+        failed_handler = operation.connect("failed", failed)
+        finished_handler = operation.connect("finished", finished)
+        return cleanup
 
     def document_changed(self, document):
         for index in range(self.tab_view.get_n_pages()):
@@ -444,7 +554,7 @@ class Window(Adw.ApplicationWindow):
     def open_file(self, file, *, remember=True):
         filename = file.get_path()
         if filename is None:
-            self.error("Only local files are supported.")
+            self.error(_("Only local files are supported."))
             return False
         path = Path(filename).absolute()
         for index in range(self.tab_view.get_n_pages()):
@@ -455,7 +565,7 @@ class Window(Adw.ApplicationWindow):
                     try:
                         remember_file(self.recent_path, path)
                     except OSError as exc:
-                        logging.warning("Could not save recent files: %s", exc)
+                        logging.warning(_("Could not save recent files: %s"), exc)
                 return True
         document = self.active_document
         new_document = document is None or document.path is not None
@@ -494,7 +604,7 @@ class Window(Adw.ApplicationWindow):
             opened = self.open_file(file) or opened
         return opened
 
-    def cleanup(self, *_):
+    def cleanup(self, *_unused):
         if not self.closed:
             self.save_window_state()
             self.save_session()
@@ -508,7 +618,7 @@ class Window(Adw.ApplicationWindow):
         try:
             save_state(self.state_path, width, height, self.is_maximized())
         except OSError as exc:
-            logging.warning("Could not save window state: %s", exc)
+            logging.warning(_("Could not save window state: %s"), exc)
 
 
 class Application(Adw.Application):
@@ -517,12 +627,14 @@ class Application(Adw.Application):
 
     def do_startup(self):
         Adw.Application.do_startup(self)
+        self.set_accels_for_action("win.export-pdf", ["<Primary>e"])
+        self.set_accels_for_action("win.print", ["<Primary>p"])
         for name, shortcuts, callback in (
-            ("open", ["<Primary>o"], lambda *_: self.window().choose_file()),
-            ("new-tab", ["<Primary>t"], lambda *_: self.window().choose_file()),
-            ("close-tab", ["<Primary>w"], lambda *_: self.window().close_current_tab()),
-            ("reload", ["<Primary>r", "F5"], lambda *_: self.window().reload()),
-            ("quit", ["<Primary>q"], lambda *_: self.quit()),
+            ("open", ["<Primary>o"], lambda *_unused: self.window().choose_file()),
+            ("new-tab", ["<Primary>t"], lambda *_unused: self.window().choose_file()),
+            ("close-tab", ["<Primary>w"], lambda *_unused: self.window().close_current_tab()),
+            ("reload", ["<Primary>r", "F5"], lambda *_unused: self.window().reload()),
+            ("quit", ["<Primary>q"], lambda *_unused: self.quit()),
         ):
             action = Gio.SimpleAction.new(name, None)
             action.connect("activate", callback)

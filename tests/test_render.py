@@ -11,6 +11,9 @@ from mdview.render import UnsupportedDocument, local_image, read_document, rende
 
 class RenderingTests(unittest.TestCase):
     def setUp(self):
+        language = patch("mdview.i18n.LANGUAGE", "en")
+        language.start()
+        self.addCleanup(language.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)

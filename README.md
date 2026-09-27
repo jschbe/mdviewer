@@ -38,12 +38,23 @@ make run
 
 Open: **Ctrl+O**. Open another file: **Ctrl+T** or the **+** button.
 Close the active tab: **Ctrl+W**. Reload: **Ctrl+R** or **F5**. Quit: **Ctrl+Q**.
+Export as PDF: **Ctrl+E**. Print: **Ctrl+P**.
 Click the application icon in the upper-left corner for app information and credits.
 The **Open** button opens a resizable file chooser, initially about two thirds of
 the current monitor's width and height. The down-arrow button to its right lists
 the ten most recently opened files, newest first; click an entry to reopen it in
 the current window. Entries show filenames only, without folder paths. Refresh
 is on the right of the header bar.
+The three-line menu beside Refresh contains **Export as PDF** and **Print**.
+**Export as PDF** saves the active document as a PDF.
+The save dialog suggests the source filename with a `.pdf` extension and starts
+in the source folder. Export includes the whole document, with a white print
+background and without Copy buttons. It is available once a file is open and
+loaded; cancelling leaves the files unchanged. Export errors are shown in the app.
+**Print** opens the standard print dialog to select a printer, paper size and
+other print settings. WebKit prints the rendered document directly; no manual
+PDF conversion is needed. PDF export and printing share the same print styles,
+including wrapped code lines, pagination and a white background in dark mode.
 Open files appear in separate tabs within the same window. The tab bar is hidden
 when only one file is open. The **Open** and **+** buttons both offer a file chooser
 with multiple selection; dropping files onto the window or passing several files
@@ -99,10 +110,13 @@ make test
 python tests/smoke_gui.py
 python tests/smoke_tabs.py
 python tests/smoke_session.py
+# PDF export test additionally requires pdftotext and pdfinfo (Poppler):
+python tests/smoke_pdf.py
 # Headless alternative, if xorg-server-xvfb and xorg-xauth are installed:
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_gui.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_tabs.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_session.py
+GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_pdf.py
 ```
 
 Parser and state tests use Python's unittest and the runtime parser/highlighter.
@@ -118,6 +132,10 @@ independent scrolling and monitoring, duplicate/invalid opens, and memory releas
 when closing tabs.
 The session integration test covers restored tab order and selection, closed tabs,
 unchanged recent-file history, and errors for files that can no longer be opened.
+The PDF integration test checks menu actions and shortcuts, the save dialog,
+cancellation, source protection, PDF text and pagination, and export failures.
+It also opens and cancels the standard print dialog. It writes only to a
+temporary directory and sends no job to a physical printer.
 
 ## Build and install packages
 
@@ -175,15 +193,15 @@ To run the build and installation steps manually:
 
 ```sh
 make dist
-cp dist/mdview-1.1.2.tar.gz packaging/
+cp dist/mdview-1.2.0.tar.gz packaging/
 cd packaging
 makepkg -f
-sudo pacman -U --needed mdview-1.1.2-1-any.pkg.tar.zst
+sudo pacman -U --needed mdview-1.2.0-1-any.pkg.tar.zst
 ```
 
 The PKGBUILD uses a locally generated source archive (hence `SKIP` for its checksum).
 Release versions in `mdview/__init__.py` and `packaging/PKGBUILD` match the Git tag
-without its `v` prefix (version `1.1.2` corresponds to tag `v1.1.2`). `make dist` reads the application
+without its `v` prefix (version `1.2.0` corresponds to tag `v1.2.0`). `make dist` reads the application
 version automatically. For future releases, update both version fields and these
 example commands, build and test, then tag the release commit as `vX.Y.Z`.
 It runs the unit tests before packaging. It installs the command, assets, desktop
@@ -234,7 +252,7 @@ local syntax highlighting. There is no CDN or JavaScript highlighting framework.
 
 ## Intentionally deferred
 
-Editing/saving, navigation history, search, printing/PDF export, remote images, raw HTML,
+Editing/saving, navigation history, search, remote images, raw HTML,
 SVG, math, Mermaid, task-list checkboxes, full GFM autolinking, cross-file anchor
 restoration, watching image changes, and AppStream/store publishing metadata.
 The app ID is a working identifier and should be changed to a namespace owned by
@@ -270,6 +288,7 @@ tests/
   smoke_gui.py
   smoke_tabs.py
   smoke_session.py
+  smoke_pdf.py
 Makefile
 build.sh
 README.md

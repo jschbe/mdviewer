@@ -16,6 +16,7 @@ from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 from pygments.util import ClassNotFound
+from .i18n import LANGUAGE, gettext as _
 
 ASSETS = Path(__file__).with_name("assets")
 MAX_DOCUMENT = 8 * 1024 * 1024
@@ -35,16 +36,16 @@ class UnsupportedDocument(ValueError):
     """The file is not supported UTF-8 text."""
 
     def __init__(self):
-        super().__init__("File cannot be displayed")
+        super().__init__(_("File cannot be displayed"))
 
 
 def read_document(path: Path) -> str:
     if not path.is_file():
-        raise ValueError("Choose a regular Markdown file.")
+        raise ValueError(_("Choose a regular Markdown file."))
     with path.open("rb") as stream:
         data = stream.read(MAX_DOCUMENT + 1)
     if len(data) > MAX_DOCUMENT:
-        raise ValueError("This document exceeds the 8 MiB size limit.")
+        raise ValueError(_("This document exceeds the 8 MiB size limit."))
     try:
         text = data.decode("utf-8-sig")
     except UnicodeError as exc:
@@ -99,8 +100,11 @@ def render(source: str, directory: Path, *, dark: bool = False) -> Document:
             except ClassNotFound:
                 pass
         return (f'<section class="code-block"><div class="code-header">'
-                f'<span>{html.escape(language or "Code")}</span>'
-                f'<button type="button" data-copy="{number}" aria-label="Copy code">Copy</button>'
+                f'<span>{html.escape(language or _("Code"))}</span>'
+                f'<button type="button" data-copy="{number}" '
+                f'data-copy-label="{html.escape(_("Copy"), quote=True)}" '
+                f'data-copied-label="{html.escape(_("Copied"), quote=True)}" '
+                f'aria-label="{html.escape(_("Copy code"), quote=True)}">{html.escape(_("Copy"))}</button>'
                 f'</div><pre><code>{formatted}</code></pre></section>\n')
 
     def image(tokens, index, options, env):
@@ -109,10 +113,10 @@ def render(source: str, directory: Path, *, dark: bool = False) -> Document:
         alt = parser.renderer.renderInlineAsText(token.children or [], options, env)
         src = local_image(token.attrGet("src") or "", directory)
         if src is None:
-            return f'<span class="blocked-image">[Image unavailable: {html.escape(alt)}]</span>'
+            return f'<span class="blocked-image">[{html.escape(_("Image unavailable"))}: {html.escape(alt)}]</span>'
         embedded_image_bytes += len(src)  # Data URIs contain only ASCII, including base64.
         if embedded_image_bytes > MAX_EMBEDDED_IMAGES:
-            raise ValueError("Embedded images exceed the 32 MiB total size limit.")
+            raise ValueError(_("Embedded images exceed the 32 MiB total size limit."))
         return f'<img src="{src}" alt="{html.escape(alt, quote=True)}">'
 
     parser.renderer.rules["fence"] = fence
@@ -146,7 +150,7 @@ def render(source: str, directory: Path, *, dark: bool = False) -> Document:
     csp = ("default-src 'none'; img-src data:; style-src 'unsafe-inline'; "
            f"script-src 'sha256-{digest}'; connect-src 'none'; "
            "base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'")
-    page = (f'<!doctype html><html class="{"dark" if dark else "light"}" lang="en">'
+    page = (f'<!doctype html><html class="{"dark" if dark else "light"}" lang="{LANGUAGE}">'
             '<head><meta charset="utf-8">'
             f'<meta http-equiv="Content-Security-Policy" content="{html.escape(csp, quote=True)}">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'

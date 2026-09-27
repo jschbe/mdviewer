@@ -44,3 +44,24 @@ th, td { border: 1px solid var(--border); padding: 7px 13px; }
 th, tr:nth-child(even) { background: var(--panel); }
 .blocked-image { color: var(--muted); font-size: .9em; }
 @media (max-width: 600px) { main { padding: 24px 20px 60px; } }
+
+@media print {
+  :root, :root.dark {
+    color-scheme: light;
+    --bg: #ffffff; --fg: #000000; --muted: #444444;
+    --panel: #f5f5f5; --border: #cccccc; --link: #164b8a;
+  }
+  body { font-size: 11pt; }
+  main { max-width: none; padding: 0; }
+  button { display: none; }
+  h1, h2, h3, h4, h5, h6, .code-header { break-after: avoid; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; }
+  .code-block { overflow: visible; }
+  html .code-block code, html .code-block code * {
+    color: #000000 !important;
+    background: transparent !important;
+  }
+  table { display: table; width: 100%; table-layout: fixed; }
+  th, td { overflow-wrap: anywhere; }
+  img { break-inside: avoid; }
+}

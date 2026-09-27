@@ -8,6 +8,8 @@ import os
 import tempfile
 from pathlib import Path
 
+os.environ["LC_ALL"] = "C.UTF-8"
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from mdview.app import Adw, Application, Gio, GLib, WebKit, Window
 
