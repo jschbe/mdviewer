@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 if len(sys.argv) == 1:
-    for language in ('de_CH', 'fr_FR', 'it_IT', 'es_MX', 'en_GB', 'nl_NL'):
+    for language in ('de_CH', 'fr_FR', 'it_IT', 'es_MX', 'uk_UA', 'en_GB', 'nl_NL', 'ru_RU'):
         environment = dict(os.environ, LC_ALL='en_US.UTF-8', LANGUAGE=language)
         subprocess.run([sys.executable, __file__, language], env=environment, check=True)
     raise SystemExit(0)
@@ -25,9 +25,12 @@ expected = {
     'fr': ('Ouvrir', 'Exporter au format PDF', 'Rechercher', 'Imprimer', 'Copié'),
     'it': ('Apri', 'Esporta come PDF', 'Trova', 'Stampa', 'Copiato'),
     'es': ('Abrir', 'Exportar como PDF', 'Buscar', 'Imprimir', 'Copiado'),
+    'uk': ('Відкрити', 'Експортувати як PDF', 'Знайти', 'Друкувати', 'Скопійовано'),
     'en': ('Open', 'Export as PDF', 'Find', 'Print', 'Copied'),
 }
 selected = sys.argv[1].split('_')[0]
+if sys.argv[1] == 'ru_RU':
+    selected = 'uk'
 selected = selected if selected in expected else 'en'
 assert LANGUAGE == selected
 labels = expected[selected]

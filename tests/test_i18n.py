@@ -16,11 +16,18 @@ class TranslationTests(unittest.TestCase):
     def test_locale_selection_and_fallback(self):
         for locale, expected in [('de_DE.UTF-8', 'de'), ('de_CH', 'de'), ('fr_CH.UTF-8', 'fr'),
                                  ('it_IT@euro', 'it'), ('es-MX', 'es'), ('en_GB.UTF-8', 'en'),
+                                 ('uk_UA.UTF-8', 'uk'), ('uk', 'uk'), ('ru_RU.UTF-8', 'uk'),
+                                 ('ru_RU', 'uk'), ('ru-RU', 'uk'), ('ru_RU@variant', 'uk'),
+                                 ('ru', 'en'), ('ru_BY.UTF-8', 'en'),
                                  ('pt_BR.UTF-8', 'en'), ('ja_JP', 'en'), ('C.UTF-8', 'en'),
                                  ('POSIX', 'en')]:
             with self.subTest(locale=locale):
                 self.assertEqual(select_language({'LANG': locale}), expected)
         self.assertEqual(select_language({}), 'en')
+        self.assertEqual(select_language({'LANG': 'ru_RU.UTF-8', 'LANGUAGE': 'en'}), 'uk')
+        self.assertEqual(select_language({'LANG': 'en_US.UTF-8', 'LANGUAGE': 'ru_RU:en'}), 'uk')
+        self.assertEqual(select_language({'LANG': 'ru_RU', 'LC_MESSAGES': 'de_DE'}), 'de')
+        self.assertEqual(select_language({'LANG': 'ru_RU', 'LC_ALL': 'C', 'LANGUAGE': 'ru_RU'}), 'en')
         self.assertEqual(select_language({'LANG': 'de_DE', 'LC_MESSAGES': 'fr_FR'}), 'fr')
         self.assertEqual(select_language({'LANG': 'de_DE', 'LC_MESSAGES': 'fr_FR', 'LC_ALL': 'it_IT'}), 'it')
         self.assertEqual(select_language({'LANG': 'de_DE', 'LANGUAGE': 'es:de'}), 'es')
@@ -47,7 +54,7 @@ class TranslationTests(unittest.TestCase):
                 self.assertEqual(original.count('%s'), translated.count('%s'))
 
     def test_translated_controls_do_not_translate_document(self):
-        for language, label in [('de', 'Kopieren'), ('fr', 'Copier'), ('it', 'Copia'), ('es', 'Copiar'), ('en', 'Copy')]:
+        for language, label in [('de', 'Kopieren'), ('fr', 'Copier'), ('it', 'Copia'), ('es', 'Copiar'), ('uk', 'Копіювати'), ('en', 'Copy')]:
             with patch('mdview.i18n.LANGUAGE', language):
                 self.assertEqual(gettext('Copy'), label)
                 self.assertEqual(gettext('Unknown message'), 'Unknown message')

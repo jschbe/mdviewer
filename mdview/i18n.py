@@ -15,9 +15,14 @@ def select_language(environment=None):
     base = locale.split(".")[0].split("@")[0]
     if base.upper() in ("C", "POSIX"):
         return "en"
+    if base.replace("-", "_").lower() == "ru_ru":
+        return "uk"
     preferences = environment.get("LANGUAGE") or locale
     for preference in preferences.split(":"):
-        language = preference.split(".")[0].split("@")[0].replace("-", "_").split("_")[0].lower()
+        normalized = preference.split(".")[0].split("@")[0].replace("-", "_").lower()
+        if normalized == "ru_ru":
+            return "uk"
+        language = normalized.split("_")[0]
         if language == "en" or language in TRANSLATIONS:
             return language
     return "en"

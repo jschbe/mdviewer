@@ -3,7 +3,7 @@
 A small, read-only Markdown viewer for GNOME, built with Python, GTK4,
 libadwaita and WebKitGTK 6.0. No editor, accounts, telemetry or services.
 
-The application interface supports English, German, French, Italian and Spanish.
+The application interface supports English, German, French, Italian, Spanish and Ukrainian.
 mdview automatically uses the system language, with English as the default when
 the system language is not supported. Document contents are not translated.
 
@@ -258,15 +258,15 @@ To run the build and installation steps manually:
 
 ```sh
 make dist
-cp dist/mdview-1.2.1.tar.gz packaging/
+cp dist/mdview-1.2.2.tar.gz packaging/
 cd packaging
 makepkg -f
-sudo pacman -U --needed mdview-1.2.1-1-any.pkg.tar.zst
+sudo pacman -U --needed mdview-1.2.2-1-any.pkg.tar.zst
 ```
 
 The PKGBUILD uses a locally generated source archive (hence `SKIP` for its checksum).
 Release versions in `mdview/__init__.py` and `packaging/PKGBUILD` match the Git tag
-without its `v` prefix (version `1.2.1` corresponds to tag `v1.2.1`). `make dist` reads the application
+without its `v` prefix (version `1.2.2` corresponds to tag `v1.2.2`). `make dist` reads the application
 version automatically. For future releases, update both version fields and these
 example commands, build and test, then tag the release commit as `vX.Y.Z`.
 It runs the unit tests before packaging. It installs the command, assets, desktop
