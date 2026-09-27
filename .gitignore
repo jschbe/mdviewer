@@ -22,6 +22,7 @@ __pycache__/
 /packaging/*.tar
 /packaging/*.sig
 /packaging/*.log
+/packaging/*.deb
 
 # Local editor files
 *~

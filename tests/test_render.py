@@ -1,8 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 import tempfile
 import unittest
 from pathlib import Path
 
-from mdview.render import local_image, read_document, render
+from mdview.render import UnsupportedDocument, local_image, read_document, render
 
 
 class RenderingTests(unittest.TestCase):
@@ -47,10 +50,28 @@ class RenderingTests(unittest.TestCase):
         path.write_bytes(b'\xef\xbb\xbf' + 'Grüße 日本語'.encode())
         self.assertEqual(read_document(path), 'Grüße 日本語')
         path.write_bytes(b'\xff')
-        with self.assertRaises(UnicodeError):
+        with self.assertRaisesRegex(UnsupportedDocument, "^File cannot be displayed$"):
             read_document(path)
         with self.assertRaises(ValueError):
             read_document(self.root)
+
+    def test_binary_content_is_rejected_even_with_markdown_extension(self):
+        path = self.root / 'binary.md'
+        for content in (b'text\0binary', b'PK\x03\x04zip', b'\x89PNG\r\n\x1a\n',
+                        b'GIF89a\x01\x00', b'%PDF-1.7\nASCII PDF content',
+                        b'\x7fELF', 'text\u0085control'.encode(),
+                        b'a' * 10000 + b'\x01'):
+            with self.subTest(content=content[:20]):
+                path.write_bytes(content)
+                with self.assertRaisesRegex(UnsupportedDocument, '^File cannot be displayed$'):
+                    read_document(path)
+
+    def test_plain_text_and_empty_files_are_allowed_without_markdown_extension(self):
+        for name in ('notes.txt', 'no-extension', 'text.bin'):
+            path = self.root / name
+            for text in ('', 'Plain text\r\nwith\ttabs\nGrüße 日本語 😀\f\v'):
+                path.write_bytes(text.encode())
+                self.assertEqual(read_document(path), text)
 
     def test_heading_ids_and_local_links(self):
         page = render('# Hello\n\n# Hello\n\n[other](other%20file.md)\n\n[jump](#hello)', self.root).html

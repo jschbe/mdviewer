@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Markdown rendering without GTK dependencies or network access."""
 
 import base64
@@ -27,6 +30,13 @@ class Document:
     codes: list[str]
 
 
+class UnsupportedDocument(ValueError):
+    """The file is not supported UTF-8 text."""
+
+    def __init__(self):
+        super().__init__("File cannot be displayed")
+
+
 def read_document(path: Path) -> str:
     if not path.is_file():
         raise ValueError("Choose a regular Markdown file.")
@@ -34,7 +44,18 @@ def read_document(path: Path) -> str:
         data = stream.read(MAX_DOCUMENT + 1)
     if len(data) > MAX_DOCUMENT:
         raise ValueError("This document exceeds the 8 MiB size limit.")
-    return data.decode("utf-8-sig")
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeError as exc:
+        raise UnsupportedDocument() from exc
+    # PDF can consist entirely of ASCII; binary control characters also occur
+    # in files that happen to decode as UTF-8. Allow normal text whitespace.
+    if text.startswith("%PDF-") or any(
+        (ord(char) < 32 and char not in "\t\n\r\f\v") or 127 <= ord(char) <= 159
+        for char in text
+    ):
+        raise UnsupportedDocument()
+    return text
 
 
 def local_image(src: str, directory: Path) -> str | None:

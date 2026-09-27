@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Native application shell; rendering lives in render.py."""
 
 import json
@@ -12,7 +15,8 @@ gi.require_version("Adw", "1")
 gi.require_version("WebKit", "6.0")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, WebKit  # noqa: E402
 
-from .render import read_document, render  # noqa: E402
+from .recent import load_recent, remember_file  # noqa: E402
+from .render import UnsupportedDocument, read_document, render  # noqa: E402
 from .state import load_state, save_state  # noqa: E402
 
 APP_ID = "io.github.mdview.Mdview"
@@ -21,6 +25,7 @@ APP_ID = "io.github.mdview.Mdview"
 class Window(Adw.ApplicationWindow):
     def __init__(self, app):
         self.state_path = Path(GLib.get_user_state_dir()) / "mdview" / "window.json"
+        self.recent_path = self.state_path.with_name("recent.json")
         state = load_state(self.state_path)
         super().__init__(application=app, title="mdview",
                          default_width=state["width"], default_height=state["height"])
@@ -38,9 +43,47 @@ class Window(Adw.ApplicationWindow):
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         header = Adw.HeaderBar()
-        open_button = Gtk.Button(icon_name="document-open-symbolic", tooltip_text="Open (Ctrl+O)")
+        # Our info button replaces the decoration's application icon/menu.
+        layout = self.get_settings().get_property("gtk-decoration-layout")
+        header.set_decoration_layout(":".join(
+            ",".join(button for button in side.split(",")
+                     if button not in ("icon", "menu"))
+            for side in layout.split(":")
+        ))
+        self.info_button = Gtk.MenuButton(tooltip_text="About mdview", has_frame=False)
+        icon_path = Path(__file__).resolve().parent.parent / "data" / f"{APP_ID}.svg"
+        icon = (Gtk.Image.new_from_file(str(icon_path)) if icon_path.is_file()
+                else Gtk.Image.new_from_icon_name(APP_ID))
+        icon.set_pixel_size(24)
+        self.info_button.set_child(icon)
+        info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8,
+                       margin_top=16, margin_bottom=16, margin_start=24, margin_end=24)
+        title = Gtk.Label(label="mdview")
+        title.add_css_class("title-1")
+        info.append(title)
+        info.append(Gtk.Label(label="simple md file viewer"))
+        credits = Gtk.Label(label="© 2026 Jochen Schmitt")
+        credits.add_css_class("dim-label")
+        info.append(credits)
+        info.append(Gtk.LinkButton(uri="https://www.gnu.org/licenses/gpl-3.0.html",
+                                   label="GNU GPL v3.0 or later"))
+        warranty = Gtk.Label(label="Free software, provided without warranty.")
+        warranty.add_css_class("dim-label")
+        info.append(warranty)
+        self.info_button.set_popover(Gtk.Popover(child=info))
+        header.pack_start(self.info_button)
+        open_controls = Gtk.Box(spacing=0)
+        open_controls.add_css_class("linked")
+        self.recent_button = Gtk.MenuButton(direction=Gtk.ArrowType.DOWN,
+                                            tooltip_text="Recently opened files")
+        recent_popover = Gtk.Popover()
+        recent_popover.connect("show", self.populate_recent)
+        self.recent_button.set_popover(recent_popover)
+        open_button = Gtk.Button(label="Open", tooltip_text="Open (Ctrl+O)")
         open_button.connect("clicked", lambda *_: self.choose_file())
-        header.pack_start(open_button)
+        open_controls.append(open_button)
+        open_controls.append(self.recent_button)
+        header.pack_start(open_controls)
         self.reload_button = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text="Reload (Ctrl+R)", sensitive=False)
         self.reload_button.connect("clicked", lambda *_: self.reload())
         header.pack_end(self.reload_button)
@@ -91,10 +134,42 @@ class Window(Adw.ApplicationWindow):
         except (ValueError, TypeError, GLib.Error):
             self.error("Could not copy this code block.")
 
+    def populate_recent(self, popover):
+        items = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4,
+                        margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
+        recent = load_recent(self.recent_path)
+        if not recent:
+            items.append(Gtk.Label(label="No recently opened files", margin_top=12,
+                                   margin_bottom=12))
+        for filename in recent:
+            path = Path(filename)
+            label = Gtk.Label(label=path.name, xalign=0, wrap=False, single_line_mode=True)
+            button = Gtk.Button(child=label, has_frame=False)
+            button.connect("clicked", self.open_recent, filename)
+            items.append(button)
+        scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER,
+                                     propagate_natural_width=True, max_content_height=400,
+                                     propagate_natural_height=True, child=items)
+        popover.set_child(scroller)
+
+    def open_recent(self, _button, filename):
+        self.recent_button.popdown()
+        self.open_file(Gio.File.new_for_path(filename))
+
     def choose_file(self):
-        dialog = Gtk.FileChooserNative(title="Open Markdown", transient_for=self,
-                                      action=Gtk.FileChooserAction.OPEN,
-                                      accept_label="Open", cancel_label="Cancel")
+        # Native/portal choosers do not expose window sizing to the application.
+        dialog = Gtk.FileChooserDialog(title="Open Markdown", transient_for=self,
+                                       modal=True, destroy_with_parent=True, resizable=True,
+                                       action=Gtk.FileChooserAction.OPEN)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Open", Gtk.ResponseType.ACCEPT)
+        dialog.set_default_response(Gtk.ResponseType.ACCEPT)
+        surface = self.get_surface()
+        monitor = self.get_display().get_monitor_at_surface(surface) if surface else None
+        if monitor:
+            geometry = monitor.get_geometry()
+            width, height = geometry.width * 2 // 3, geometry.height * 2 // 3
+        else:
+            width, height = 800, 600
         markdown = Gtk.FileFilter(name="Markdown files")
         for pattern in ("*.md", "*.markdown", "*.MD"):
             markdown.add_pattern(pattern)
@@ -109,7 +184,11 @@ class Window(Adw.ApplicationWindow):
             chooser.destroy()
 
         dialog.connect("response", response)
-        dialog.show()
+        dialog.present()
+        # Apply after GTK restores its saved chooser size during presentation.
+        dialog.unmaximize()
+        dialog.unfullscreen()
+        dialog.set_default_size(width, height)
 
     def open_file(self, file):
         path = file.get_path()
@@ -121,6 +200,9 @@ class Window(Adw.ApplicationWindow):
     def load(self, path, preserve):
         try:
             document = render(read_document(path), path.parent, dark=self.style.get_dark())
+        except UnsupportedDocument as exc:
+            self.error(str(exc))
+            return
         except (OSError, UnicodeError, ValueError) as exc:
             self.error(f"Cannot open {path.name}: {exc}")
             return
@@ -137,6 +219,11 @@ class Window(Adw.ApplicationWindow):
             self.set_title(f"{path.name} — mdview")
             self.reload_button.set_sensitive(True)
             self.web.load_html(document.html, "about:blank")
+            if not preserve:
+                try:
+                    remember_file(self.recent_path, path)
+                except OSError as exc:
+                    logging.warning("Could not save recent files: %s", exc)
             if changed:
                 self.watch()
 

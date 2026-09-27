@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 "use strict";
 document.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-copy]");

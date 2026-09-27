@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 PREFIX ?= /usr
 PYTHON ?= python3
 VERSION := $(shell $(PYTHON) -c 'from mdview import __version__; print(__version__)')
