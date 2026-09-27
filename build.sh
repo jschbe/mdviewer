@@ -13,9 +13,10 @@ Debug packages are disabled. By default (no parameters) only build is performed,
 
   -deb         Build a Debian .deb package instead of an Arch package.
   -i, -install  Install after building: sudo pacman -U --needed for Arch,
-               or sudo dpkg -i with -deb. No installation without this option.
+               or sudo apt install with -deb (including missing dependencies).
+               No installation without this option.
   -f, -force    Arch only: omit --needed to reinstall the same version.
-               Has no effect with -deb; dpkg -i already permits reinstallation.
+               Has no effect with -deb.
   -h           Print this help and exit without building or installing.
 EOF
 }
@@ -45,6 +46,11 @@ for dependency in make python3 tar "$builder"; do
         exit 1
     fi
 done
+
+if [[ "$deb" == true && "$install" == true ]] && ! command -v apt >/dev/null 2>&1; then
+    printf 'Required installation tool not found: apt\n' >&2
+    exit 1
+fi
 
 # Remove generated package files, keeping PKGBUILD and other source files.
 shopt -s nullglob
@@ -80,7 +86,7 @@ EOF
     chmod 644 "$package_root/DEBIAN/control"
     dpkg-deb --root-owner-group --build "$package_root" "$package_file"
     if [[ "$install" == true ]]; then
-        sudo dpkg -i "$package_file"
+        sudo apt install "$package_file"
     fi
     exit 0
 fi

@@ -82,7 +82,7 @@ with tempfile.TemporaryDirectory() as directory:
     assert app.get_accels_for_action('win.print') == ['<Control>p']
     model = window.menu_button.get_menu_model()
     assert [model.get_item_attribute_value(i, 'label', None).get_string()
-            for i in range(model.get_n_items())] == ['Export as PDF', 'Print']
+            for i in range(model.get_n_items())] == ['Export as PDF', 'Find', 'Print']
     seen = []
 
     def cancel_print_dialog():

@@ -25,6 +25,101 @@ from .state import load_state, save_state  # noqa: E402
 APP_ID = "io.github.mdview.Mdview"
 
 
+class FindWindow(Gtk.Window):
+    """Movable search window for the currently selected document."""
+
+    def __init__(self, parent):
+        super().__init__(title=_("Find"), transient_for=parent,
+                         modal=False, destroy_with_parent=True, default_width=360)
+        self.owner = parent
+        self.controller = None
+        self.web = None
+        self.handlers = []
+        self.query = None
+        self.set_titlebar(Gtk.HeaderBar(show_title_buttons=True))
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
+                      margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self.entry = Gtk.Entry(placeholder_text=_("Find"), activates_default=True)
+        self.entry.connect("changed", self.changed)
+        box.append(self.entry)
+        self.case_sensitive = Gtk.CheckButton(label=_("Case sensitive"), active=False)
+        self.case_sensitive.connect("toggled", self.changed)
+        box.append(self.case_sensitive)
+        self.message = Gtk.Label(xalign=0)
+        box.append(self.message)
+        buttons = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+        cancel = Gtk.Button(label=_("Cancel"))
+        cancel.connect("clicked", lambda *_unused: self.close())
+        buttons.append(cancel)
+        self.find_button = Gtk.Button(label=_("Find"))
+        self.find_button.add_css_class("suggested-action")
+        self.find_button.connect("clicked", self.find)
+        buttons.append(self.find_button)
+        box.append(buttons)
+        self.set_child(box)
+        self.set_default_widget(self.find_button)
+        self.connect("close-request", self.cleanup)
+        self.bind_document()
+
+    def release_document(self):
+        for obj, handler in self.handlers:
+            obj.disconnect(handler)
+        self.handlers.clear()
+        if self.controller:
+            self.controller.search_finish()
+        self.controller = None
+        self.web = None
+
+    def bind_document(self):
+        self.release_document()
+        document = self.owner.active_document
+        self.set_title(_("Find in ({name})").format(name=document.path.name)
+                       if document and document.path else _("Find"))
+        if document and document.path and not document.closed:
+            self.web = document.web
+            self.controller = self.web.get_find_controller()
+            self.handlers = [
+                (self.controller, self.controller.connect("found-text", self.found)),
+                (self.controller, self.controller.connect("failed-to-find-text", self.not_found)),
+                (self.web, self.web.connect("load-changed", self.changed)),
+            ]
+        self.changed()
+
+    def changed(self, *_unused):
+        self.query = None
+        self.message.set_text("")
+        if self.controller:
+            self.controller.search_finish()
+        self.find_button.set_sensitive(bool(self.entry.get_text()) and
+                                       self.web is not None and not self.web.is_loading())
+
+    def find(self, *_unused):
+        text = self.entry.get_text()
+        if not text or not self.web or self.web.is_loading():
+            return
+        self.message.set_text("")
+        if text == self.query:
+            self.controller.search_next()
+        else:
+            self.query = text
+            options = WebKit.FindOptions.WRAP_AROUND
+            if not self.case_sensitive.get_active():
+                options |= WebKit.FindOptions.CASE_INSENSITIVE
+            self.controller.search(text, options, 2**32 - 1)
+
+    def found(self, *_unused):
+        self.message.set_text("")
+
+    def not_found(self, *_unused):
+        if self.query is not None:
+            self.message.set_text(_("not found"))
+
+    def cleanup(self, *_unused):
+        self.release_document()
+        self.owner.find_window = None
+        return False
+
+
 class DocumentView(Gtk.Box):
     """One document, with independent rendering, scroll state and monitoring."""
 
@@ -187,6 +282,8 @@ class DocumentView(Gtk.Box):
         if self.closed:
             return
         self.closed = True
+        if self.window.find_window and self.window.find_window.web is self.web:
+            self.window.find_window.release_document()
         self.generation += 1
         if self.monitor:
             self.monitor.cancel()
@@ -277,8 +374,10 @@ class Window(Adw.ApplicationWindow):
         header.pack_end(self.reload_button)
         menu = Gio.Menu()
         self.output_actions = []
+        self.find_window = None
         for name, label, callback in (
             ("export-pdf", _("Export as PDF"), self.choose_pdf),
+            ("find", _("Find"), self.show_find),
             ("print", _("Print"), self.print_document),
         ):
             action = Gio.SimpleAction.new(name, None)
@@ -453,6 +552,16 @@ class Window(Adw.ApplicationWindow):
         self.reload_button.set_sensitive(path is not None)
         for action in self.output_actions:
             action.set_enabled(path is not None)
+        if self.find_window:
+            self.find_window.bind_document()
+
+    def show_find(self):
+        if not self.active_document or not self.active_document.path:
+            return
+        if self.find_window is None:
+            self.find_window = FindWindow(self)
+        self.find_window.present()
+        self.find_window.entry.grab_focus()
 
     def choose_pdf(self):
         document = self.active_document
@@ -609,6 +718,8 @@ class Window(Adw.ApplicationWindow):
             self.save_window_state()
             self.save_session()
             self.closed = True
+            if self.find_window:
+                self.find_window.close()
             for document in self.documents():
                 document.dispose_document()
         return False
@@ -628,6 +739,7 @@ class Application(Adw.Application):
     def do_startup(self):
         Adw.Application.do_startup(self)
         self.set_accels_for_action("win.export-pdf", ["<Primary>e"])
+        self.set_accels_for_action("win.find", ["<Primary>f"])
         self.set_accels_for_action("win.print", ["<Primary>p"])
         for name, shortcuts, callback in (
             ("open", ["<Primary>o"], lambda *_unused: self.window().choose_file()),

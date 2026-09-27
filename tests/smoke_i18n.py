@@ -21,11 +21,11 @@ from mdview.app import Application, Gio, GLib, Window
 from mdview.i18n import LANGUAGE
 
 expected = {
-    'de': ('Öffnen', 'Als PDF exportieren', 'Drucken', 'Kopiert'),
-    'fr': ('Ouvrir', 'Exporter au format PDF', 'Imprimer', 'Copié'),
-    'it': ('Apri', 'Esporta come PDF', 'Stampa', 'Copiato'),
-    'es': ('Abrir', 'Exportar como PDF', 'Imprimir', 'Copiado'),
-    'en': ('Open', 'Export as PDF', 'Print', 'Copied'),
+    'de': ('Öffnen', 'Als PDF exportieren', 'Suchen', 'Drucken', 'Kopiert'),
+    'fr': ('Ouvrir', 'Exporter au format PDF', 'Rechercher', 'Imprimer', 'Copié'),
+    'it': ('Apri', 'Esporta come PDF', 'Trova', 'Stampa', 'Copiato'),
+    'es': ('Abrir', 'Exportar como PDF', 'Buscar', 'Imprimir', 'Copiado'),
+    'en': ('Open', 'Export as PDF', 'Find', 'Print', 'Copied'),
 }
 selected = sys.argv[1].split('_')[0]
 selected = selected if selected in expected else 'en'
@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory() as directory:
     controls = window.info_button.get_next_sibling()
     assert controls.get_first_child().get_label() == labels[0]
     model = window.menu_button.get_menu_model()
-    assert [model.get_item_attribute_value(i, 'label', None).get_string() for i in range(2)] == list(labels[1:3])
+    assert [model.get_item_attribute_value(i, 'label', None).get_string() for i in range(3)] == list(labels[1:4])
     window.open_file(Gio.File.new_for_path(str(path)))
     document = window.active_document
     wait_for(lambda: not document.web.is_loading())
@@ -68,7 +68,7 @@ with tempfile.TemporaryDirectory() as directory:
 
     document.js('window.mdviewCopied(0); document.querySelector("button[data-copy]").textContent', done)
     wait_for(lambda: bool(result))
-    assert result == [labels[3]], result
+    assert result == [labels[4]], result
     assert document.codes == ['Copy\n'] and window.heading.get_title() == 'Open.md'
     window.close()
     print(f'PASS: {sys.argv[1]} → {LANGUAGE}: native UI, menu, Copy confirmation, unchanged document.')

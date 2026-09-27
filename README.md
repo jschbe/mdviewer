@@ -3,6 +3,10 @@
 A small, read-only Markdown viewer for GNOME, built with Python, GTK4,
 libadwaita and WebKitGTK 6.0. No editor, accounts, telemetry or services.
 
+The application interface supports English, German, French, Italian and Spanish.
+mdview automatically uses the system language, with English as the default when
+the system language is not supported. Document contents are not translated.
+
 ## License
 
 Copyright © 2026 Jochen Schmitt. Developed with Codex.
@@ -16,6 +20,55 @@ mdview is distributed without any warranty, including the implied warranties of
 merchantability or fitness for a particular purpose. See [LICENSE](LICENSE) for
 the full GNU GPL text. It is included in source archives and installed at
 `/usr/share/licenses/mdview/LICENSE` by the Arch package.
+
+## Desktop compatibility
+
+mdview is designed for GNOME, but does not require the GNOME desktop itself.
+It should also run under XFCE and other Linux desktop environments when the
+following runtime dependencies are installed:
+
+- Python 3.10 or newer and PyGObject (including GTK/WebKit introspection bindings)
+- GTK 4
+- libadwaita 1.2 or newer
+- WebKitGTK with the 6.0 API
+- markdown-it-py and Pygments
+
+GTK 4 can be installed alongside GTK 3; the desktop can continue using GTK 3.
+GTK 2 or GTK 3 alone is not sufficient. Older distributions must provide the
+required libraries. mdview retains its Adwaita appearance on other desktops.
+The `.deb` package was installed with `apt` and successfully tested for startup
+and Markdown display in an Ubuntu 24.04 XFCE virtual machine. This setup required
+the AppArmor profile below and `GTK_THEME=Adwaita` to avoid incompatible theme
+warnings.
+
+### Ubuntu 24.04: WebKit sandbox permissions
+
+Ubuntu 24.04 restricts unprivileged user namespaces through AppArmor. If startup
+fails with `bwrap: setting up uid map: Permission denied` and AppArmor denials
+appear in the kernel log, allow mdview to create its WebKit sandbox using an
+application-specific profile. For the installed `/usr/bin/mdview` launcher,
+create `/etc/apparmor.d/mdview` with:
+
+```text
+abi <abi/4.0>,
+include <tunables/global>
+
+profile mdview /usr/bin/mdview flags=(unconfined) {
+    userns,
+}
+```
+
+Load it with `sudo apparmor_parser -r /etc/apparmor.d/mdview`, then start mdview
+as your normal user. This keeps the system-wide restriction and WebKit sandbox
+enabled. See the [Ubuntu release notes](https://discourse.ubuntu.com/t/ubuntu-24-04-lts-noble-numbat-release-notes/39890)
+for background. The profile currently needs to be installed manually.
+
+Similar sandbox startup failures may occur on Debian or other distributions if
+custom AppArmor policies or system settings restrict unprivileged user namespaces.
+
+If GTK reports incompatible theme CSS, try `GTK_THEME=Adwaita mdview`.
+In the tested VM, EGL/DRI warnings about unavailable 3D acceleration did not
+prevent Markdown display.
 
 ## Install dependencies (Arch Linux)
 
@@ -39,13 +92,21 @@ make run
 Open: **Ctrl+O**. Open another file: **Ctrl+T** or the **+** button.
 Close the active tab: **Ctrl+W**. Reload: **Ctrl+R** or **F5**. Quit: **Ctrl+Q**.
 Export as PDF: **Ctrl+E**. Print: **Ctrl+P**.
+Find: **Ctrl+F**.
 Click the application icon in the upper-left corner for app information and credits.
 The **Open** button opens a resizable file chooser, initially about two thirds of
 the current monitor's width and height. The down-arrow button to its right lists
 the ten most recently opened files, newest first; click an entry to reopen it in
 the current window. Entries show filenames only, without folder paths. Refresh
 is on the right of the header bar.
-The three-line menu beside Refresh contains **Export as PDF** and **Print**.
+The three-line menu beside Refresh contains **Export as PDF**, **Find** and **Print**.
+**Find** opens a movable, non-modal window for searching the active document.
+Enter a search string and click **Find** (or press Enter) to jump to the first
+match, then repeat to advance to the next match. The window title shows the active
+filename. Searching wraps to the beginning and ignores case by default; enable
+**Case sensitive** to distinguish uppercase and lowercase letters.
+If there is no match, the window shows “not found”.
+It stays open while searching; use **Cancel** or its close icon to close it.
 **Export as PDF** saves the active document as a PDF.
 The save dialog suggests the source filename with a `.pdf` extension and starts
 in the source folder. Export includes the whole document, with a white print
@@ -110,12 +171,14 @@ make test
 python tests/smoke_gui.py
 python tests/smoke_tabs.py
 python tests/smoke_session.py
+python tests/smoke_find.py
 # PDF export test additionally requires pdftotext and pdfinfo (Poppler):
 python tests/smoke_pdf.py
 # Headless alternative, if xorg-server-xvfb and xorg-xauth are installed:
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_gui.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_tabs.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_session.py
+GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_find.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_pdf.py
 ```
 
@@ -132,6 +195,8 @@ independent scrolling and monitoring, duplicate/invalid opens, and memory releas
 when closing tabs.
 The session integration test covers restored tab order and selection, closed tabs,
 unchanged recent-file history, and errors for files that can no longer be opened.
+The Find integration test covers first/next matches, wrapping, missing matches,
+tab changes and search-window cleanup.
 The PDF integration test checks menu actions and shortcuts, the save dialog,
 cancellation, source protection, PDF text and pagination, and export failures.
 It also opens and cancels the standard print dialog. It writes only to a
@@ -170,14 +235,15 @@ enabled in your system's `makepkg` configuration.
 ./build.sh -i       # Build and install; skip an already installed version.
 ./build.sh -i -f    # Build and install, even if the same version is installed.
 ./build.sh -deb     # Build packaging/mdview_<version>-1_all.deb.
-./build.sh -deb -i  # Build the .deb and install it with sudo dpkg -i.
+./build.sh -deb -i  # Build the .deb and install it with sudo apt install.
 ./build.sh -h       # Show help without building or installing.
 ```
 
 `-install` is an alias for `-i`; `-force` is an alias for `-f`. For Arch,
 installation uses `sudo pacman -U --needed`; the force option omits `--needed`.
-With `-deb`, installation uses `sudo dpkg -i`, which also permits reinstalling
-the same version; `-f` has no effect in this mode. Both installation commands
+With `-deb`, installation uses `sudo apt install` with the local package path,
+automatically installing missing dependencies from the configured repositories.
+This requires `apt` on the target system; `-f` has no effect in this mode. Both installation commands
 may prompt for your password. The force option alone never enables installation.
 
 The `-deb` build requires `dpkg-deb` (from `dpkg`, version 1.19.0 or newer),
@@ -186,22 +252,21 @@ It runs the unit tests and packages the application, desktop entry, icon and GPL
 license without creating a debug package. The package declares its runtime
 dependencies, including `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1` and
 `gir1.2-webkit-6.0`; the target distribution must provide these packages.
-`dpkg -i` does not download missing dependencies. Install them beforehand or
-resolve them afterward with `sudo apt --fix-broken install`.
+To install a built package manually, use `sudo apt install ./packaging/mdview_<version>-1_all.deb`.
 
 To run the build and installation steps manually:
 
 ```sh
 make dist
-cp dist/mdview-1.2.0.tar.gz packaging/
+cp dist/mdview-1.2.1.tar.gz packaging/
 cd packaging
 makepkg -f
-sudo pacman -U --needed mdview-1.2.0-1-any.pkg.tar.zst
+sudo pacman -U --needed mdview-1.2.1-1-any.pkg.tar.zst
 ```
 
 The PKGBUILD uses a locally generated source archive (hence `SKIP` for its checksum).
 Release versions in `mdview/__init__.py` and `packaging/PKGBUILD` match the Git tag
-without its `v` prefix (version `1.2.0` corresponds to tag `v1.2.0`). `make dist` reads the application
+without its `v` prefix (version `1.2.1` corresponds to tag `v1.2.1`). `make dist` reads the application
 version automatically. For future releases, update both version fields and these
 example commands, build and test, then tag the release commit as `vX.Y.Z`.
 It runs the unit tests before packaging. It installs the command, assets, desktop
@@ -252,7 +317,7 @@ local syntax highlighting. There is no CDN or JavaScript highlighting framework.
 
 ## Intentionally deferred
 
-Editing/saving, navigation history, search, remote images, raw HTML,
+Editing/saving, navigation history, remote images, raw HTML,
 SVG, math, Mermaid, task-list checkboxes, full GFM autolinking, cross-file anchor
 restoration, watching image changes, and AppStream/store publishing metadata.
 The app ID is a working identifier and should be changed to a namespace owned by
