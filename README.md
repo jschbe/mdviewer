@@ -128,6 +128,18 @@ sudo pacman -S --needed base-devel
 ./build.sh
 ```
 
+If you want to build a Debian `.deb` package on Arch, also install
+[`dpkg`](https://archlinux.org/packages/extra/x86_64/dpkg/) from the official
+Extra repository. It provides the `dpkg-deb` build command:
+
+```sh
+sudo pacman -S --needed dpkg
+./build.sh -deb
+```
+
+This additional package is only needed for `.deb` builds. Build on Arch without
+`-i`; install the resulting `.deb` on the target Debian-based system.
+
 Run `build.sh` as your normal user. It removes old generated archives, signatures,
 logs, `.deb` files and the `src/` and `pkg/` build directories from `packaging/`,
 preserving `PKGBUILD`. It builds an Arch package by default; `-deb` selects a
@@ -163,15 +175,15 @@ To run the build and installation steps manually:
 
 ```sh
 make dist
-cp dist/mdview-1.1.1.tar.gz packaging/
+cp dist/mdview-1.1.2.tar.gz packaging/
 cd packaging
 makepkg -f
-sudo pacman -U --needed mdview-1.1.1-1-any.pkg.tar.zst
+sudo pacman -U --needed mdview-1.1.2-1-any.pkg.tar.zst
 ```
 
 The PKGBUILD uses a locally generated source archive (hence `SKIP` for its checksum).
 Release versions in `mdview/__init__.py` and `packaging/PKGBUILD` match the Git tag
-without its `v` prefix (version `1.1.1` corresponds to tag `v1.1.1`). `make dist` reads the application
+without its `v` prefix (version `1.1.2` corresponds to tag `v1.1.2`). `make dist` reads the application
 version automatically. For future releases, update both version fields and these
 example commands, build and test, then tag the release commit as `vX.Y.Z`.
 It runs the unit tests before packaging. It installs the command, assets, desktop

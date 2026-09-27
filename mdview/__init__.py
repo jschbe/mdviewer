@@ -3,4 +3,4 @@
 
 """A small, read-only GNOME Markdown viewer."""
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"

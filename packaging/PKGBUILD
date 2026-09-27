@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 pkgname=mdview
-pkgver=1.1.1
+pkgver=1.1.2
 pkgrel=1
 pkgdesc='Small read-only Markdown viewer for GNOME'
 arch=('any')
