@@ -35,15 +35,15 @@ def activated(_app):
             return
         if state["phase"] == 0:
             state["phase"] = 1
-            window.js('window.scrollTo(0, 600); window.webkit.messageHandlers.copy.postMessage(0)')
+            window.active_document.js('window.scrollTo(0, 600); window.webkit.messageHandlers.copy.postMessage(0)')
             GLib.timeout_add(300, check_clipboard)
         elif state["phase"] == 2:
             state["phase"] = 3
-            window.style.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
-            window.js('const attack = document.createElement("script"); attack.textContent = "window.untrustedRan = true"; document.body.append(attack)')
+            window.active_document.style.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+            window.active_document.js('const attack = document.createElement("script"); attack.textContent = "window.untrustedRan = true"; document.body.append(attack)')
             GLib.timeout_add(300, check_reload)
 
-    window.web.connect("load-changed", loaded)
+    window.active_document.web.connect("load-changed", loaded)
     window.open_file(Gio.File.new_for_path(str(path)))
     window.present()
 
@@ -78,7 +78,7 @@ def check_reload():
         window.close()
         app.quit()
 
-    window.js('document.querySelector("h1").textContent === "Updated" && Math.abs(window.scrollY - 600) < 5 && document.documentElement.className === "dark" && window.untrustedRan === undefined', checked)
+    window.active_document.js('document.querySelector("h1").textContent === "Updated" && Math.abs(window.scrollY - 600) < 5 && document.documentElement.className === "dark" && window.untrustedRan === undefined', checked)
     return GLib.SOURCE_REMOVE
 
 

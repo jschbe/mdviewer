@@ -36,14 +36,31 @@ python -m mdview README.md
 make run
 ```
 
-Open: **Ctrl+O**. Reload: **Ctrl+R** or **F5**. Quit: **Ctrl+Q**.
+Open: **Ctrl+O**. Open another file: **Ctrl+T** or the **+** button.
+Close the active tab: **Ctrl+W**. Reload: **Ctrl+R** or **F5**. Quit: **Ctrl+Q**.
 Click the application icon in the upper-left corner for app information and credits.
 The **Open** button opens a resizable file chooser, initially about two thirds of
 the current monitor's width and height. The down-arrow button to its right lists
 the ten most recently opened files, newest first; click an entry to reopen it in
 the current window. Entries show filenames only, without folder paths. Refresh
 is on the right of the header bar.
-Drop a local file onto the window, or pass multiple files to open separate windows.
+Open files appear in separate tabs within the same window. The tab bar is hidden
+when only one file is open. The **Open** and **+** buttons both offer a file chooser
+with multiple selection; dropping files onto the window or passing several files
+on the command line also opens tabs. Opening an already open file selects its tab.
+The header shows the active filename with its absolute folder path underneath;
+hover over the title or a tab to see the full file path. Each tab keeps its own
+scroll position, code blocks and file monitor. Close tabs with their close button
+or **Ctrl+W**; closing the last one returns to the welcome view.
+
+Open tabs, their order and the active tab are saved when closing the window or
+quitting with **Ctrl+Q**, then restored on the next launch. Missing, unreadable or
+unsupported files are skipped and listed together in an error dialog; the other
+files still open. Files passed on the command line open alongside the restored
+tabs. The session is stored in `$XDG_STATE_HOME/mdview/session.json` (normally
+`~/.local/state/mdview/session.json`). Delete it to reset the saved tabs, or close
+all tabs before quitting to start with an empty session. Scroll positions are
+not saved across restarts.
 GNOME's light/dark preference is followed automatically. Each fenced code block
 has a Copy button; the desktop clipboard receives only the original code text.
 Markdown and plain text files must be UTF-8 (an optional BOM is accepted).
@@ -64,10 +81,11 @@ Only successful opens are recorded; automatic reloads do not change the order.
 Delete this file to clear the history. Missing files show an error when selected
 and leave the current document visible.
 
-The document's parent directory is monitored, including atomic file replacements.
+Each document's parent directory is monitored, including atomic file replacements,
+even when its tab is inactive.
 Reloads preserve the vertical pixel offset; substantial edits can move the text
 at that offset. An unreadable file shows a toast and leaves the previous document
-visible. Relative Markdown links open in the current window, heading anchors
+visible. Relative Markdown links open or select a tab in the current window; heading anchors
 scroll within the document, and HTTP/HTTPS/mail links use the desktop handler.
 
 ## Tests
@@ -76,14 +94,22 @@ scroll within the document, and HTTP/HTTPS/mail links use the desktop handler.
 make test
 # Optional real GTK/WebKit integration test, in a desktop session:
 python tests/smoke_gui.py
+python tests/smoke_tabs.py
+python tests/smoke_session.py
 # Headless alternative, if xorg-server-xvfb and xorg-xauth are installed:
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_gui.py
+GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_tabs.py
+GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_session.py
 ```
 
 Unit tests use only Python's unittest and the runtime parser/highlighter.
 The integration test checks the actual WebKit message bridge, desktop clipboard,
 atomic-save monitoring, scroll preservation, theme updates and CSP script blocking.
 It temporarily changes the clipboard.
+The tab integration test checks single/multiple-tab layouts, file locations,
+independent scrolling and monitoring, duplicate/invalid opens, and tab cleanup.
+The session integration test covers restored tab order and selection, closed tabs,
+and errors for files that can no longer be opened.
 
 ## Build and install an Arch package
 
@@ -129,15 +155,15 @@ To run the build and installation steps manually:
 
 ```sh
 make dist
-cp dist/mdview-1.0.2.tar.gz packaging/
+cp dist/mdview-1.1.0.tar.gz packaging/
 cd packaging
 makepkg -f
-sudo pacman -U --needed mdview-1.0.2-1-any.pkg.tar.zst
+sudo pacman -U --needed mdview-1.1.0-1-any.pkg.tar.zst
 ```
 
 The PKGBUILD uses a locally generated source archive (hence `SKIP` for its checksum).
 Release versions in `mdview/__init__.py` and `packaging/PKGBUILD` match the Git tag
-without its `v` prefix (currently `v1.0.2`). `make dist` reads the application
+without its `v` prefix (version `1.1.0` corresponds to tag `v1.1.0`). `make dist` reads the application
 version automatically. For future releases, update both version fields and these
 example commands, build and test, then tag the release commit as `vX.Y.Z`.
 It runs the unit tests before packaging. It installs the command, assets, desktop
@@ -185,7 +211,7 @@ local syntax highlighting. There is no CDN or JavaScript highlighting framework.
 
 ## Intentionally deferred
 
-Editing/saving, tabs/history, search, printing/PDF export, remote images, raw HTML,
+Editing/saving, navigation history, search, printing/PDF export, remote images, raw HTML,
 SVG, math, Mermaid, task-list checkboxes, full GFM autolinking, cross-file anchor
 restoration, watching image changes, and AppStream/store publishing metadata.
 The app ID is a working identifier and should be changed to a namespace owned by
@@ -202,6 +228,7 @@ mdview/
   render.py
   recent.py
   state.py
+  session.py
   assets/
     bridge.js
     style.css
@@ -213,7 +240,10 @@ tests/
   test_render.py
   test_recent.py
   test_state.py
+  test_session.py
   smoke_gui.py
+  smoke_tabs.py
+  smoke_session.py
 Makefile
 build.sh
 README.md
