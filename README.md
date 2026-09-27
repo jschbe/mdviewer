@@ -61,11 +61,34 @@ Install `base-devel` if your system is not already configured for `makepkg`:
 
 ```sh
 sudo pacman -S --needed base-devel
+./build.sh
+```
+
+Run `build.sh` as your normal user. It removes old generated archives, signatures,
+logs and the `src/` and `pkg/` build directories from `packaging/`, preserving
+`PKGBUILD`. It then builds the current version without installing it. The script
+stops if any command fails and can be invoked from any working directory.
+The PKGBUILD disables separate debug packages, including when debug builds are
+enabled in your system's `makepkg` configuration.
+
+```sh
+./build.sh -i       # Build and install; skip an already installed version.
+./build.sh -i -f    # Build and install, even if the same version is installed.
+./build.sh -h       # Show help without building or installing.
+```
+
+`-install` is an alias for `-i`; `-force` is an alias for `-f`. Installation uses
+`sudo pacman -U --needed` and may prompt for your password. The force option omits
+`--needed` and only affects installation; on its own, it still only builds.
+
+To run the build and installation steps manually:
+
+```sh
 make dist
 cp dist/mdview-1.0.1.tar.gz packaging/
 cd packaging
 makepkg -f
-sudo pacman -U mdview-1.0.1-1-any.pkg.tar.zst
+sudo pacman -U --needed mdview-1.0.1-1-any.pkg.tar.zst
 ```
 
 The PKGBUILD uses a locally generated source archive (hence `SKIP` for its checksum).
@@ -146,6 +169,7 @@ tests/
   test_state.py
   smoke_gui.py
 Makefile
+build.sh
 README.md
 LICENSE
 .gitignore
