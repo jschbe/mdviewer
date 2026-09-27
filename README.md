@@ -70,6 +70,40 @@ If GTK reports incompatible theme CSS, try `GTK_THEME=Adwaita mdview`.
 In the tested VM, EGL/DRI warnings about unavailable 3D acceleration did not
 prevent Markdown display.
 
+### Windows / WSL
+
+mdview has been successfully tested on Windows with Debian under WSL.
+Use WSL 2 with WSLg to display the Linux application window on the Windows
+desktop; a full GNOME or XFCE desktop is not required. See Microsoft's
+[Linux GUI apps in WSL guide](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps)
+for setup requirements.
+
+Inside Debian, install the built `.deb` package with `apt` so that missing
+dependencies are installed automatically, then launch mdview:
+
+```sh
+sudo apt install ./mdview_<version>-1_all.deb
+mdview
+```
+
+Replace `<version>` with the package version and run the command from the
+directory containing the package.
+
+To open Markdown files directly from Windows Explorer, create
+`C:\Users\<username>\cmd\mdview.cmd` with:
+
+```bat
+@echo off
+wsl.exe -d Debian -- bash -lc "exec mdview \"$(wslpath -u \"$1\")\"" mdview "%~1"
+```
+
+The wrapper passes the Windows filename as a separate argument, converts it
+with `wslpath`, and launches mdview in the `Debian` WSL distribution. Adjust the
+distribution name if needed. Associate `.md` files with this wrapper using
+**Open with → Choose another app** in Windows Explorer and select it as the
+default. Double-clicking a Markdown file then opens mdview through WSLg as a
+regular desktop window, without a separate Windows build or additional X server.
+
 ## Install dependencies (Arch Linux)
 
 ```sh
