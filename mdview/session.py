@@ -1,12 +1,12 @@
-# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Persist open tabs separately from window geometry and recent-file history."""
 
 import json
-import os
-import tempfile
 from pathlib import Path
+
+from .storage import atomic_write_json
 
 
 def load_session(path: Path) -> dict:
@@ -28,15 +28,4 @@ def load_session(path: Path) -> dict:
 
 
 def save_session(path: Path, files: list[str], active: str | None) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                                         prefix=".session-", delete=False) as stream:
-            temporary = Path(stream.name)
-            json.dump({"files": files, "active": active}, stream)
-            stream.write("\n")
-        os.replace(temporary, path)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+    atomic_write_json(path, {"files": files, "active": active})

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Native application shell; rendering lives in render.py."""
@@ -40,7 +40,8 @@ class DocumentView(Gtk.Box):
         self.theme_handler = self.style.connect("notify::dark", self.theme_changed)
 
         manager = WebKit.UserContentManager()
-        manager.connect("script-message-received::copy", self.copy_code)
+        self.manager = manager
+        self.copy_handler = manager.connect("script-message-received::copy", self.copy_code)
         manager.register_script_message_handler("copy", None)
         self.web = WebKit.WebView(user_content_manager=manager, hexpand=True, vexpand=True,
                                   network_session=WebKit.NetworkSession.new_ephemeral())
@@ -50,11 +51,13 @@ class DocumentView(Gtk.Box):
         settings.set_enable_html5_local_storage(False)
         settings.set_allow_file_access_from_file_urls(False)
         settings.set_allow_universal_access_from_file_urls(False)
-        self.web.connect("decide-policy", self.decide_policy)
-        self.web.connect("permission-request", lambda _web, request: (request.deny(), True)[1])
-        self.web.connect("context-menu", lambda *_: True)
-        self.web.connect("load-changed", self.loaded)
-        self.web.connect("web-process-terminated", lambda *_: self.error("The renderer stopped. Try Reload."))
+        self.web_handlers = [
+            self.web.connect("decide-policy", self.decide_policy),
+            self.web.connect("permission-request", lambda _web, request: (request.deny(), True)[1]),
+            self.web.connect("context-menu", lambda *_: True),
+            self.web.connect("load-changed", self.loaded),
+            self.web.connect("web-process-terminated", lambda *_: self.error("The renderer stopped. Try Reload.")),
+        ]
         self.append(self.web)
         self.web.load_html(render("# mdview\n\nOpen a Markdown file with **Ctrl+O**.", Path.cwd(), dark=self.style.get_dark()).html, "about:blank")
 
@@ -75,7 +78,7 @@ class DocumentView(Gtk.Box):
         except (ValueError, TypeError, GLib.Error):
             self.error("Could not copy this code block.")
 
-    def load(self, path, preserve):
+    def load(self, path, preserve, *, remember=True):
         try:
             document = render(read_document(path), path.parent, dark=self.style.get_dark())
         except UnsupportedDocument as exc:
@@ -96,7 +99,7 @@ class DocumentView(Gtk.Box):
             self.restore_y = y
             self.window.document_changed(self)
             self.web.load_html(document.html, "about:blank")
-            if not preserve:
+            if not preserve and remember:
                 try:
                     remember_file(self.window.recent_path, path)
                 except OSError as exc:
@@ -175,7 +178,8 @@ class DocumentView(Gtk.Box):
             self.error(f"Cannot open link: {exc.message}")
 
     def error(self, message):
-        self.window.error(message)
+        if not self.closed:
+            self.window.error(message)
 
     def dispose_document(self):
         if self.closed:
@@ -189,7 +193,17 @@ class DocumentView(Gtk.Box):
             GLib.source_remove(self.pending_reload)
             self.pending_reload = 0
         self.style.disconnect(self.theme_handler)
+        for handler in self.web_handlers:
+            self.web.disconnect(handler)
+        self.web_handlers.clear()
+        self.manager.disconnect(self.copy_handler)
+        self.manager.unregister_script_message_handler("copy", None)
         self.web.stop_loading()
+        self.remove(self.web)
+        self.web = None
+        self.manager = None
+        self.window = None
+        self.codes.clear()
 
 
 class Window(Adw.ApplicationWindow):
@@ -291,7 +305,7 @@ class Window(Adw.ApplicationWindow):
         try:
             for filename in session["files"]:
                 self.restoring_path = filename
-                self.open_file(Gio.File.new_for_path(filename))
+                self.open_file(Gio.File.new_for_path(filename), remember=False)
             for index in range(self.tab_view.get_n_pages()):
                 page = self.tab_view.get_nth_page(index)
                 if str(page.get_child().path) == session["active"]:
@@ -427,7 +441,7 @@ class Window(Adw.ApplicationWindow):
         if document is self.active_document:
             self.selection_changed()
 
-    def open_file(self, file):
+    def open_file(self, file, *, remember=True):
         filename = file.get_path()
         if filename is None:
             self.error("Only local files are supported.")
@@ -437,16 +451,17 @@ class Window(Adw.ApplicationWindow):
             page = self.tab_view.get_nth_page(index)
             if page.get_child().path == path:
                 self.tab_view.set_selected_page(page)
-                try:
-                    remember_file(self.recent_path, path)
-                except OSError as exc:
-                    logging.warning("Could not save recent files: %s", exc)
+                if remember:
+                    try:
+                        remember_file(self.recent_path, path)
+                    except OSError as exc:
+                        logging.warning("Could not save recent files: %s", exc)
                 return True
         document = self.active_document
         new_document = document is None or document.path is not None
         if new_document:
             document = DocumentView(self)
-        if not document.load(path, preserve=False):
+        if not document.load(path, preserve=False, remember=remember):
             if new_document:
                 document.dispose_document()
             return False

@@ -1,9 +1,10 @@
-# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from mdview.render import UnsupportedDocument, local_image, read_document, render
 
@@ -54,6 +55,18 @@ class RenderingTests(unittest.TestCase):
             read_document(path)
         with self.assertRaises(ValueError):
             read_document(self.root)
+
+    def test_total_image_budget_counts_repeated_and_distinct_images(self):
+        (self.root / 'a.png').write_bytes(b'image data')
+        (self.root / 'b.png').write_bytes(b'image data')
+        uri_size = len(local_image('a.png', self.root))
+        with patch('mdview.render.MAX_EMBEDDED_IMAGES', uri_size * 2):
+            self.assertEqual(render('![](a.png) ![](b.png)', self.root).html.count('<img '), 2)
+            for source in ('![](a.png) ' * 3, '![](a.png) ![](b.png) ![](a.png)'):
+                with self.assertRaisesRegex(ValueError, 'total size limit'):
+                    render(source, self.root)
+            # Each new document gets its own budget.
+            self.assertEqual(render('![](a.png)', self.root).html.count('<img '), 1)
 
     def test_binary_content_is_rejected_even_with_markdown_extension(self):
         path = self.root / 'binary.md'

@@ -77,7 +77,10 @@ state falls back to the default size. Delete this file to reset the window.
 
 Recent files are saved separately to `$XDG_STATE_HOME/mdview/recent.json`
 (normally `~/.local/state/mdview/recent.json`) and shared by all mdview windows.
-Only successful opens are recorded; automatic reloads do not change the order.
+The order is always most recently opened to oldest. Explicitly reopening a file,
+including one already in a tab, moves it to the front. Automatic reloads and
+session restoration do not change the history. Restored tabs retain their saved
+tab order, independently of this history.
 Delete this file to clear the history. Missing files show an error when selected
 and leave the current document visible.
 
@@ -102,16 +105,21 @@ GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_tabs.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_session.py
 ```
 
-Unit tests use only Python's unittest and the runtime parser/highlighter.
+Parser and state tests use Python's unittest and the runtime parser/highlighter.
+The packaging test also uses `make`, `tar` and `install`, and skips itself if
+these tools are unavailable. It builds a source archive and stages installation
+in a temporary directory, including paths with spaces; it does not install on
+the system.
 The integration test checks the actual WebKit message bridge, desktop clipboard,
 atomic-save monitoring, scroll preservation, theme updates and CSP script blocking.
 It temporarily changes the clipboard.
 The tab integration test checks single/multiple-tab layouts, file locations,
-independent scrolling and monitoring, duplicate/invalid opens, and tab cleanup.
+independent scrolling and monitoring, duplicate/invalid opens, and memory release
+when closing tabs.
 The session integration test covers restored tab order and selection, closed tabs,
-and errors for files that can no longer be opened.
+unchanged recent-file history, and errors for files that can no longer be opened.
 
-## Build and install an Arch package
+## Build and install packages
 
 Install `base-devel` if your system is not already configured for `makepkg`:
 
@@ -155,15 +163,15 @@ To run the build and installation steps manually:
 
 ```sh
 make dist
-cp dist/mdview-1.1.0.tar.gz packaging/
+cp dist/mdview-1.1.1.tar.gz packaging/
 cd packaging
 makepkg -f
-sudo pacman -U --needed mdview-1.1.0-1-any.pkg.tar.zst
+sudo pacman -U --needed mdview-1.1.1-1-any.pkg.tar.zst
 ```
 
 The PKGBUILD uses a locally generated source archive (hence `SKIP` for its checksum).
 Release versions in `mdview/__init__.py` and `packaging/PKGBUILD` match the Git tag
-without its `v` prefix (version `1.1.0` corresponds to tag `v1.1.0`). `make dist` reads the application
+without its `v` prefix (version `1.1.1` corresponds to tag `v1.1.1`). `make dist` reads the application
 version automatically. For future releases, update both version fields and these
 example commands, build and test, then tag the release commit as `vX.Y.Z`.
 It runs the unit tests before packaging. It installs the command, assets, desktop
@@ -205,7 +213,10 @@ local syntax highlighting. There is no CDN or JavaScript highlighting framework.
   links are handed to the desktop; only Markdown local links reopen in the viewer.
 - Copy messages carry a validated block index, not an arbitrary clipboard payload.
   Python copies the corresponding original code. There are no line numbers.
-- Documents are limited to 8 MiB and individual images to 10 MiB. Parsing runs on
+- Documents are limited to 8 MiB and individual images to 10 MiB. Embedded image
+  data is additionally limited to 32 MiB per document, including base64 encoding
+  and repeated references. Exceeding this total rejects the document with an error.
+  Parsing runs on
   the UI thread to keep this MVP small; unusually complex documents may pause it.
   This is a viewer with restricted content, not a replacement for OS sandboxing.
 
@@ -229,6 +240,7 @@ mdview/
   recent.py
   state.py
   session.py
+  storage.py
   assets/
     bridge.js
     style.css
@@ -241,6 +253,8 @@ tests/
   test_recent.py
   test_state.py
   test_session.py
+  test_storage.py
+  test_packaging.py
   smoke_gui.py
   smoke_tabs.py
   smoke_session.py

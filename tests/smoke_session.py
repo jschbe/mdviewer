@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Optional GUI test for session restore, including missing and binary files."""
@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from mdview.app import Adw, Application, Gio, GLib, Gtk, Window
 from mdview.session import load_session
+from mdview.recent import load_recent
 
 
 with tempfile.TemporaryDirectory() as directory:
@@ -27,17 +28,23 @@ with tempfile.TemporaryDirectory() as directory:
     for file in files:
         window.open_file(Gio.File.new_for_path(str(file)))
     window.tab_view.set_selected_page(window.tab_view.get_nth_page(0))
+    window.open_file(Gio.File.new_for_path(str(files[1])))
+    window.tab_view.reorder_page(window.tab_view.get_nth_page(3), 0)
+    expected_order = [files[3], files[0], files[1], files[2]]
+    history = load_recent(window.recent_path)
+    assert history == [str(files[1]), str(files[3]), str(files[2]), str(files[0])]
     session_path = window.session_path
     window.close()
-    assert load_session(session_path) == {'files': [str(p) for p in files], 'active': str(files[0])}
+    assert load_session(session_path) == {'files': [str(p) for p in expected_order], 'active': str(files[1])}
     restored = Window(app)
     restored.present()
-    assert [doc.path for doc in restored.documents()] == files
-    assert restored.active_document.path == files[0]
+    assert [doc.path for doc in restored.documents()] == expected_order
+    assert restored.active_document.path == files[1]
+    assert load_recent(restored.recent_path) == history
     # Closing a tab should remove it from the next session.
-    restored.tab_view.close_page(restored.tab_view.get_nth_page(1))
+    restored.tab_view.close_page(restored.tab_view.get_nth_page(2))
     restored.close()
-    assert load_session(session_path)['files'] == [str(files[0]), str(files[2]), str(files[3])]
+    assert load_session(session_path)['files'] == [str(files[3]), str(files[0]), str(files[2])]
     files[0].unlink()
     files[2].write_bytes(b'\0binary')
     failed = Window(app)

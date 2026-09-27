@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Markdown rendering without GTK dependencies or network access."""
@@ -20,6 +20,7 @@ from pygments.util import ClassNotFound
 ASSETS = Path(__file__).with_name("assets")
 MAX_DOCUMENT = 8 * 1024 * 1024
 MAX_IMAGE = 10 * 1024 * 1024
+MAX_EMBEDDED_IMAGES = 32 * 1024 * 1024
 IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
                ".gif": "image/gif", ".webp": "image/webp"}
 
@@ -81,6 +82,7 @@ def local_image(src: str, directory: Path) -> str | None:
 
 def render(source: str, directory: Path, *, dark: bool = False) -> Document:
     codes = []
+    embedded_image_bytes = 0
     parser = MarkdownIt("commonmark", {"html": False}).enable(["table", "strikethrough"])
 
     def fence(tokens, index, options, env):
@@ -102,11 +104,15 @@ def render(source: str, directory: Path, *, dark: bool = False) -> Document:
                 f'</div><pre><code>{formatted}</code></pre></section>\n')
 
     def image(tokens, index, options, env):
+        nonlocal embedded_image_bytes
         token = tokens[index]
         alt = parser.renderer.renderInlineAsText(token.children or [], options, env)
         src = local_image(token.attrGet("src") or "", directory)
         if src is None:
             return f'<span class="blocked-image">[Image unavailable: {html.escape(alt)}]</span>'
+        embedded_image_bytes += len(src)  # Data URIs contain only ASCII, including base64.
+        if embedded_image_bytes > MAX_EMBEDDED_IMAGES:
+            raise ValueError("Embedded images exceed the 32 MiB total size limit.")
         return f'<img src="{src}" alt="{html.escape(alt, quote=True)}">'
 
     parser.renderer.rules["fence"] = fence

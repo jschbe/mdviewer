@@ -1,13 +1,15 @@
-# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Optional tab integration test; run with a desktop or xvfb-run."""
 
 import json
+import gc
 import os
 import sys
 import tempfile
 import time
+import weakref
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -123,9 +125,12 @@ with tempfile.TemporaryDirectory() as directory:
 
     # Closing releases the watcher and pending reload without affecting other tabs.
     monitor = first_view.monitor
+    web_reference = weakref.ref(first_view.web)
     first_view.pending_reload = GLib.timeout_add(10000, first_view.monitored_reload)
     window.close_current_tab()
     assert first_view.closed and monitor.is_cancelled() and first_view.pending_reload == 0
+    wait_for(lambda: gc.collect() >= 0 and web_reference() is None,
+             'Closed WebView was not released')
     assert window.tab_view.get_n_pages() == 2
     while window.tab_view.get_n_pages() > 1:
         window.close_current_tab()
@@ -136,5 +141,13 @@ with tempfile.TemporaryDirectory() as directory:
     assert window.heading.get_title() == 'mdview' and window.heading.get_subtitle() == ''
     assert not window.reload_button.get_sensitive()
     assert second_view.closed and third_view.closed
+    # Repeated open/close must release both the view and its WebKit child.
+    references = []
+    for _ in range(5):
+        window.open_file(Gio.File.new_for_path(str(first)))
+        references.extend((weakref.ref(window.active_document), weakref.ref(window.active_document.web)))
+        window.close_current_tab()
+    wait_for(lambda: gc.collect() >= 0 and all(ref() is None for ref in references),
+             'Closed document views accumulated in memory')
     window.close()
     print('PASS: tabs, hidden single-tab bar, file locations, independent scrolling/watching, duplicate and invalid files, plus button, app open, drag/drop, and tab cleanup')

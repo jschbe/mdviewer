@@ -1,12 +1,12 @@
-# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Small, validated window-state file; no settings schema installation needed."""
 
 import json
-import os
-import tempfile
 from pathlib import Path
+
+from .storage import atomic_write_json
 
 
 def load_state(path: Path) -> dict:
@@ -27,15 +27,4 @@ def load_state(path: Path) -> dict:
 
 
 def save_state(path: Path, width: int, height: int, maximized: bool) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                                         prefix=".window-", delete=False) as stream:
-            temporary = Path(stream.name)
-            json.dump({"width": width, "height": height, "maximized": maximized}, stream)
-            stream.write("\n")
-        os.replace(temporary, path)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+    atomic_write_json(path, {"width": width, "height": height, "maximized": maximized})

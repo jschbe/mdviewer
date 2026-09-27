@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: 2026 Jochen Schmitt and mdview contributors
+# SPDX-FileCopyrightText: 2026 Jochen Schmitt
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 set -euo pipefail
@@ -60,8 +60,7 @@ if [[ "$deb" == true ]]; then
     make test
     package_root="$PWD/packaging/pkg/deb"
     package_file="$PWD/packaging/mdview_${version}-1_all.deb"
-    # Keep DESTDIR relative: the Makefile also works in checkout paths with spaces.
-    make DESTDIR=packaging/pkg/deb PREFIX=/usr install
+    make DESTDIR="$package_root" PREFIX=/usr install
     mkdir -p "$package_root/DEBIAN"
     chmod 755 "$package_root/DEBIAN"
     install -Dm644 LICENSE "$package_root/usr/share/doc/mdview/copyright"
