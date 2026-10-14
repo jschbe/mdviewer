@@ -51,7 +51,8 @@ with tempfile.TemporaryDirectory() as directory:
     assert '<Control>f' in app.get_accels_for_action('win.find')
     menu = window.menu_button.get_menu_model()
     assert [menu.get_item_attribute_value(i, 'label', None).get_string()
-            for i in range(menu.get_n_items())] == ['Export as PDF', 'Find', 'Print']
+            for i in range(3)] == ['Export as PDF', 'Find', 'Print']
+    assert menu.get_item_attribute_value(3, 'custom', None).get_string() == 'zoom'
     window.open_file(Gio.File.new_for_path(str(source)))
     web = window.active_document.web
     wait_for(lambda: not web.is_loading() and web.get_height() > 0)

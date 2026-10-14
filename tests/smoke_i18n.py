@@ -18,7 +18,7 @@ if len(sys.argv) == 1:
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from mdview.app import Application, Gio, GLib, Window
-from mdview.i18n import LANGUAGE
+from mdview.i18n import LANGUAGE, gettext
 
 expected = {
     'de': ('Öffnen', 'Als PDF exportieren', 'Suchen', 'Drucken', 'Kopiert'),
@@ -61,6 +61,10 @@ with tempfile.TemporaryDirectory() as directory:
     assert controls.get_first_child().get_label() == labels[0]
     model = window.menu_button.get_menu_model()
     assert [model.get_item_attribute_value(i, 'label', None).get_string() for i in range(3)] == list(labels[1:4])
+    assert window.zoom_label.get_parent().get_first_child().get_label() == gettext('Zoom')
+    assert window.zoom_label.get_text() == '100%'
+    assert window.zoom_minus.get_tooltip_text() == gettext('Zoom out')
+    assert window.zoom_plus.get_tooltip_text() == gettext('Zoom in')
     window.open_file(Gio.File.new_for_path(str(path)))
     document = window.active_document
     wait_for(lambda: not document.web.is_loading())

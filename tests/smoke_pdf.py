@@ -78,11 +78,27 @@ with tempfile.TemporaryDirectory() as directory:
     window.export_pdf(document, Gio.File.new_for_path(str(root / 'missing' / 'failed.pdf')))
     wait_for(lambda: not window.print_operations)
     assert errors and 'Could not export PDF' in errors[-1]
+    errors.clear()
     assert app.get_accels_for_action('win.export-pdf') == ['<Control>e']
     assert app.get_accels_for_action('win.print') == ['<Control>p']
     model = window.menu_button.get_menu_model()
     assert [model.get_item_attribute_value(i, 'label', None).get_string()
-            for i in range(model.get_n_items())] == ['Export as PDF', 'Find', 'Print']
+            for i in range(3)] == ['Export as PDF', 'Find', 'Print']
+    assert model.get_item_attribute_value(3, 'custom', None).get_string() == 'zoom'
+    # Native page zoom must not change print pagination, text positions or scale.
+    baseline = subprocess.run(['pdftotext', '-bbox', str(target), '-'], check=True,
+                              capture_output=True, text=True).stdout.split('<body>')[1]
+    for zoom in (50, 125, 300):
+        window.set_zoom(zoom)
+        wait_for(lambda: document.web.get_zoom_level() == zoom / 100)
+        zoomed = root / f'zoom-{zoom}.pdf'
+        window.export_pdf(document, Gio.File.new_for_path(str(zoomed)))
+        wait_for(lambda: bool(errors) or (zoomed.exists() and not window.print_operations))
+        assert not errors, errors
+        positions = subprocess.run(['pdftotext', '-bbox', str(zoomed), '-'], check=True,
+                                   capture_output=True, text=True).stdout.split('<body>')[1]
+        assert positions == baseline, f'PDF layout changed at {zoom}%'
+        assert document.web.get_zoom_level() == zoom / 100
     seen = []
 
     def cancel_print_dialog():
@@ -98,4 +114,4 @@ with tempfile.TemporaryDirectory() as directory:
     assert seen == [True], 'The standard print dialog was not shown'
     assert not window.print_operations
     window.close()
-    print(f'PASS: menu actions, shortcuts, standard print dialog cancellation, PDF save defaults, cancel, source protection, PDF content and {pages} pages.')
+    print(f'PASS: menu actions, shortcuts, standard print dialog cancellation, PDF save defaults, cancel, source protection, PDF content and {pages} pages; identical PDF layout at 50%, 100%, 125% and 300% zoom.')

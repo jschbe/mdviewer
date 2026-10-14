@@ -8,6 +8,7 @@ import hashlib
 import html
 import re
 from dataclasses import dataclass
+from os.path import abspath
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -128,8 +129,14 @@ def render(source: str, directory: Path, *, dark: bool = False) -> Document:
                 href = child.attrGet("href") or ""
                 uri = urlsplit(href)
                 if href and not href.startswith("#") and not uri.scheme and not uri.netloc:
-                    target = (directory / unquote(uri.path)).resolve().as_uri()
-                    child.attrSet("href", target + (f"#{uri.fragment}" if uri.fragment else ""))
+                    # An app-owned scheme reaches decide-policy without asking
+                    # WebKit to navigate from about:blank to a forbidden file URI.
+                    # Defer symlink resolution/validation to navigation: a bad
+                    # target must not prevent the source document from opening.
+                    target = Path(abspath(directory / unquote(uri.path))).as_uri()
+                    target = target.replace("file:", "mdview:", 1)
+                    child.attrSet("href", target + (f"?{uri.query}" if uri.query else "")
+                                  + (f"#{uri.fragment}" if uri.fragment else ""))
     used_ids = set()
     for i, token in enumerate(tokens):
         if token.type == "heading_open":

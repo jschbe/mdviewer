@@ -15,3 +15,23 @@ window.mdviewCopied = (index) => {
   button.textContent = button.dataset.copiedLabel;
   setTimeout(() => { button.textContent = button.dataset.copyLabel; }, 1400);
 };
+
+// Keep the same block at the top after WebKit reflows the page at a new zoom.
+window.mdviewZoomPosition = () => {
+  const blocks = [...document.querySelector("main").children];
+  let index = 0;
+  for (let i = 0; i < blocks.length; i++) {
+    if (blocks[i].getBoundingClientRect().top > 0) break;
+    index = i;
+  }
+  const rect = blocks[index]?.getBoundingClientRect();
+  return rect ? [index, -rect.top / Math.max(rect.height, 1), window.scrollX] : null;
+};
+window.mdviewRestoreZoomPosition = ([index, offset, x]) => {
+  requestAnimationFrame(() => {
+    const block = document.querySelector("main").children[index];
+    if (!block) return;
+    const rect = block.getBoundingClientRect();
+    window.scrollTo(x, window.scrollY + rect.top + offset * rect.height);
+  });
+};

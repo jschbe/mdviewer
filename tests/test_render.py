@@ -92,7 +92,7 @@ class RenderingTests(unittest.TestCase):
     def test_heading_ids_and_local_links(self):
         page = render('# Hello\n\n# Hello\n\n[other](other%20file.md)\n\n[jump](#hello)', self.root).html
         self.assertIn('id="hello-1"', page)
-        self.assertIn((self.root / 'other file.md').as_uri(), page)
+        self.assertIn((self.root / 'other file.md').as_uri().replace('file:', 'mdview:', 1), page)
         self.assertIn('href="#hello"', page)
 
 

@@ -7,10 +7,11 @@ import json
 from pathlib import Path
 
 from .storage import atomic_write_json
+from .zoom import DEFAULT_ZOOM, clamp_zoom
 
 
 def load_state(path: Path) -> dict:
-    state = {"width": 960, "height": 760, "maximized": False}
+    state = {"width": 960, "height": 760, "maximized": False, "zoom": DEFAULT_ZOOM}
     try:
         saved = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -23,8 +24,11 @@ def load_state(path: Path) -> dict:
             state[key] = value
     if type(saved.get("maximized")) is bool:
         state["maximized"] = saved["maximized"]
+    state["zoom"] = clamp_zoom(saved.get("zoom"))
     return state
 
 
-def save_state(path: Path, width: int, height: int, maximized: bool) -> None:
-    atomic_write_json(path, {"width": width, "height": height, "maximized": maximized})
+def save_state(path: Path, width: int, height: int, maximized: bool,
+               zoom: int = DEFAULT_ZOOM) -> None:
+    atomic_write_json(path, {"width": width, "height": height, "maximized": maximized,
+                             "zoom": clamp_zoom(zoom)})

@@ -133,7 +133,23 @@ the current monitor's width and height. The down-arrow button to its right lists
 the ten most recently opened files, newest first; click an entry to reopen it in
 the current window. Entries show filenames only, without folder paths. Refresh
 is on the right of the header bar.
-The three-line menu beside Refresh contains **Export as PDF**, **Find** and **Print**.
+The three-line menu beside Refresh contains **Export as PDF**, **Find**, **Print**
+and **Zoom − 100% +**. Zoom starts at 100% and ranges from 50% to 300%.
+The percentage is plain, non-editable text. Use Minus/Plus or the keyboard shortcuts:
+**Ctrl++** or **Ctrl+=** to zoom in, and **Ctrl+-** to zoom out. These work in every
+tab; Shift is supported when needed to type `+`. Ctrl with the numeric keypad's
+Plus/Minus also works. Buttons and shortcuts use the same window zoom actions.
+The compact symbols have a subtle circular background on hover and follow the
+current light/dark theme. Use Tab to focus a button and Space to activate it.
+Minus and Plus move in ten-percentage-point steps. Previously saved non-round
+values still restore and step to the next lower or higher multiple of ten: 125% becomes
+120% or 130%, while 120% becomes 110% or 130%. Minus is disabled at 50% and Plus
+at 300%, including their shortcuts. The Zoom label aligns with the other menu
+entries, and the text controls align to the right without shifting as percentages
+change. Zoom scales the whole document, including headings, tables and code,
+and keeps the current block near the top where possible. All tabs in a window
+share its zoom; newly opened and restored tabs inherit it. PDF export and printing
+keep their existing scale and formatting regardless of display zoom.
 **Find** opens a movable, non-modal window for searching the active document.
 Enter a search string and click **Find** (or press Enter) to jump to the first
 match, then repeat to advance to the next match. The window title shows the active
@@ -175,11 +191,13 @@ control characters, and PDF headers are rejected with “File cannot be displaye
 This is a basic content check, not a complete file-format detector. Rejected files
 leave the current document and recent-file history unchanged.
 
-The window's normal size and maximized state are restored on launch. State is
+The window's normal size, maximized state and zoom are restored on launch. State is
 saved to `$XDG_STATE_HOME/mdview/window.json` (normally
 `~/.local/state/mdview/window.json`) on close or Ctrl+Q. With multiple windows,
 the last closed window wins; Ctrl+Q saves the active window. Missing or invalid
-state falls back to the default size. Delete this file to reset the window.
+state falls back to the default size and 100% zoom. Previously saved integer zoom
+values below 50% or above 300% are clamped to the nearest boundary on restoration.
+Delete this file to reset the window.
 
 Recent files are saved separately to `$XDG_STATE_HOME/mdview/recent.json`
 (normally `~/.local/state/mdview/recent.json`) and shared by all mdview windows.
@@ -194,8 +212,19 @@ Each document's parent directory is monitored, including atomic file replacement
 even when its tab is inactive.
 Reloads preserve the vertical pixel offset; substantial edits can move the text
 at that offset. An unreadable file shows a toast and leaves the previous document
-visible. Relative Markdown links open or select a tab in the current window; heading anchors
-scroll within the document, and HTTP/HTTPS/mail links use the desktop handler.
+visible. Left-click an HTTP/HTTPS link to open it in the system's default browser;
+mail links continue to use the desktop mail handler. Right-click a link and choose
+**Copy Link** to copy its complete URL, including the query and fragment, without
+Markdown syntax or link text.
+Relative Markdown links resolve against the current document's folder and open
+or select a tab in the current window. Paths with spaces or URL-encoded characters
+are supported, as are `.md` and `.markdown` extensions (case-insensitive).
+An already-open target is selected rather than duplicated, including when reached
+through a symlink. Missing, unreadable or invalid files show an error and leave
+the current document visible. Heading anchors work within a document and in
+links to another Markdown document. **Copy Link** on a local Markdown link copies
+the resolved absolute file path, without its heading fragment. Local resource
+access and unsupported URI schemes remain restricted.
 
 ## Tests
 
@@ -206,6 +235,7 @@ python tests/smoke_gui.py
 python tests/smoke_tabs.py
 python tests/smoke_session.py
 python tests/smoke_find.py
+python tests/smoke_zoom.py
 # PDF export test additionally requires pdftotext and pdfinfo (Poppler):
 python tests/smoke_pdf.py
 # Headless alternative, if xorg-server-xvfb and xorg-xauth are installed:
@@ -214,9 +244,13 @@ GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_tabs.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_session.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_find.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_pdf.py
+GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_zoom.py
+# Trusted mouse/link integration test additionally needs X11 and libXtst:
+GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_links.py
+GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_zoom_keys.py
 ```
 
-Parser and state tests use Python's unittest and the runtime parser/highlighter.
+Parser, link-path, zoom and state tests use Python's unittest and the runtime parser/highlighter.
 The packaging test also uses `make`, `tar` and `install`, and skips itself if
 these tools are unavailable. It builds a source archive and stages installation
 in a temporary directory, including paths with spaces; it does not install on
@@ -233,8 +267,20 @@ The Find integration test covers first/next matches, wrapping, missing matches,
 tab changes and search-window cleanup.
 The PDF integration test checks menu actions and shortcuts, the save dialog,
 cancellation, source protection, PDF text and pagination, and export failures.
+It compares PDF text positions and pagination at 50%, 100%, 125% and 300% zoom.
 It also opens and cancels the standard print dialog. It writes only to a
 temporary directory and sends no job to a physical printer.
+The zoom integration test checks the compact text controls, stable alignment and boundaries,
+shortcut registration/shared actions, shared/new-tab zoom, rendered sizes, scrolling,
+themes, reload, restart restoration and clamping of older saved zoom values.
+The zoom-keyboard integration test sends real Ctrl shortcuts with XTest, using
+the current keymap to handle Shift, and checks both tabs, limits and existing
+shortcut registrations. Like the link test, it requires X11 and libXtst.
+The link integration test sends trusted left/right mouse clicks to WebKit using
+XTest, checks native link context actions and the desktop clipboard, and exercises
+local paths, duplicate tabs, heading anchors and error handling. It intercepts the
+desktop URL-launch call so no browser or network connection is opened. The XTest
+library is a test-only requirement; no new application dependency is needed.
 
 ## Build and install packages
 
@@ -340,6 +386,8 @@ local syntax highlighting. There is no CDN or JavaScript highlighting framework.
 - WebKit uses an ephemeral session, disables local storage and file access, denies
   permission requests, and intercepts navigation. Only user-clicked HTTP/HTTPS/mail
   links are handed to the desktop; only Markdown local links reopen in the viewer.
+  The renderer rewrites local links to an internal `mdview:` URI so they reach
+  the existing navigation policy without granting WebKit access to local files.
 - Copy messages carry a validated block index, not an arbitrary clipboard payload.
   Python copies the corresponding original code. There are no line numbers.
 - Documents are limited to 8 MiB and individual images to 10 MiB. Embedded image
@@ -352,8 +400,8 @@ local syntax highlighting. There is no CDN or JavaScript highlighting framework.
 ## Intentionally deferred
 
 Editing/saving, navigation history, remote images, raw HTML,
-SVG, math, Mermaid, task-list checkboxes, full GFM autolinking, cross-file anchor
-restoration, watching image changes, and AppStream/store publishing metadata.
+SVG, math, Mermaid, task-list checkboxes, full GFM autolinking,
+watching image changes, and AppStream/store publishing metadata.
 The app ID is a working identifier and should be changed to a namespace owned by
 the publisher before public distribution.
 
@@ -368,6 +416,8 @@ mdview/
   render.py
   recent.py
   state.py
+  zoom.py
+  links.py
   session.py
   storage.py
   assets/

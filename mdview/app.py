@@ -17,10 +17,12 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk, WebKit  # noqa: E402
 
 from . import __version__  # noqa: E402
 from .i18n import gettext as _  # noqa: E402
+from .links import local_link_path  # noqa: E402
 from .recent import load_recent, remember_file  # noqa: E402
 from .render import UnsupportedDocument, read_document, render  # noqa: E402
 from .session import load_session, save_session  # noqa: E402
 from .state import load_state, save_state  # noqa: E402
+from .zoom import MAX_ZOOM, MIN_ZOOM, step_zoom, valid_zoom  # noqa: E402
 
 APP_ID = "io.github.mdview.Mdview"
 
@@ -132,6 +134,8 @@ class DocumentView(Gtk.Box):
         self.pending_reload = 0
         self.generation = 0
         self.restore_y = 0
+        self.pending_anchor = None
+        self.zoom_generation = 0
         self.closed = False
         self.style = Adw.StyleManager.get_default()
         self.theme_handler = self.style.connect("notify::dark", self.theme_changed)
@@ -142,16 +146,18 @@ class DocumentView(Gtk.Box):
         manager.register_script_message_handler("copy", None)
         self.web = WebKit.WebView(user_content_manager=manager, hexpand=True, vexpand=True,
                                   network_session=WebKit.NetworkSession.new_ephemeral())
+        self.web.set_zoom_level(window.zoom / 100)
         settings = self.web.get_settings()
         settings.set_enable_developer_extras(False)
         settings.set_enable_html5_database(False)
         settings.set_enable_html5_local_storage(False)
         settings.set_allow_file_access_from_file_urls(False)
         settings.set_allow_universal_access_from_file_urls(False)
+        settings.set_zoom_text_only(False)
         self.web_handlers = [
             self.web.connect("decide-policy", self.decide_policy),
             self.web.connect("permission-request", lambda _web, request: (request.deny(), True)[1]),
-            self.web.connect("context-menu", lambda *_unused: True),
+            self.web.connect("context-menu", self.context_menu),
             self.web.connect("load-changed", self.loaded),
             self.web.connect("web-process-terminated", lambda *_unused: self.error(_("The renderer stopped. Try Reload."))),
         ]
@@ -164,6 +170,26 @@ class DocumentView(Gtk.Box):
 
     def theme_changed(self, *_unused):
         self.js("document.documentElement.className = " + json.dumps("dark" if self.style.get_dark() else "light"))
+
+    def apply_zoom(self):
+        self.zoom_generation += 1
+        revision, generation = self.zoom_generation, self.generation
+        if self.web.is_loading():
+            self.web.set_zoom_level(self.window.zoom / 100)
+            return
+
+        def position(web, result, _data):
+            if self.closed or revision != self.zoom_generation or generation != self.generation:
+                return
+            try:
+                anchor = json.loads(web.evaluate_javascript_finish(result).to_json(0))
+            except (GLib.Error, ValueError, TypeError):
+                anchor = None
+            web.set_zoom_level(self.window.zoom / 100)
+            if anchor is not None:
+                self.js("window.mdviewRestoreZoomPosition(" + json.dumps(anchor) + ")")
+
+        self.js("window.mdviewZoomPosition()", position)
 
     def copy_code(self, _manager, value):
         try:
@@ -194,7 +220,9 @@ class DocumentView(Gtk.Box):
             self.path = path
             self.codes = document.codes
             self.restore_y = y
+            self.pending_anchor = None
             self.window.document_changed(self)
+            self.web.set_zoom_level(self.window.zoom / 100)
             self.web.load_html(document.html, "about:blank")
             if not preserve and remember:
                 try:
@@ -220,7 +248,20 @@ class DocumentView(Gtk.Box):
     def loaded(self, _web, event):
         if not self.closed and event == WebKit.LoadEvent.FINISHED:
             self.theme_changed()
-            self.js(f"window.scrollTo(0, {float(self.restore_y)})")
+            if self.pending_anchor is not None:
+                self.scroll_to_anchor()
+            else:
+                self.js(f"window.scrollTo(0, {float(self.restore_y)})")
+
+    def navigate_anchor(self, fragment):
+        self.pending_anchor = unquote(fragment)
+        if not self.web.is_loading():
+            self.scroll_to_anchor()
+
+    def scroll_to_anchor(self):
+        anchor = json.dumps(self.pending_anchor)
+        self.pending_anchor = None
+        self.js(f"document.getElementById({anchor})?.scrollIntoView()")
 
     def reload(self):
         if self.path:
@@ -257,16 +298,40 @@ class DocumentView(Gtk.Box):
             return True
         decision.ignore()
         if action.is_user_gesture() and action.get_navigation_type() == WebKit.NavigationType.LINK_CLICKED:
-            parsed = urlsplit(uri)
+            try:
+                parsed = urlsplit(uri)
+            except ValueError:
+                return True
             if parsed.scheme in ("https", "http", "mailto"):
                 Gio.AppInfo.launch_default_for_uri_async(uri, self.get_display().get_app_launch_context(), None, self.link_opened)
-            elif parsed.scheme == "file" and parsed.netloc in ("", "localhost"):
-                path = Path(unquote(parsed.path))
-                if path.suffix.lower() in (".md", ".markdown"):
-                    self.window.open_file(Gio.File.new_for_path(str(path)))
-                else:
+            elif parsed.scheme in ("file", "mdview") and parsed.netloc in ("", "localhost"):
+                path = local_link_path(uri)
+                if path is None:
                     self.error(_("Only Markdown file links can open here."))
+                elif self.window.open_file(Gio.File.new_for_path(str(path))) and parsed.fragment:
+                    self.window.active_document.navigate_anchor(parsed.fragment)
         return True
+
+    def context_menu(self, _web, menu, hit_test):
+        menu.remove_all()
+        if not hit_test.context_is_link():
+            return True
+        uri = hit_test.get_link_uri()
+        try:
+            parsed = urlsplit(uri)
+        except ValueError:
+            return True
+        if parsed.scheme in ("http", "https", "mailto"):
+            text = uri
+        else:
+            path = (self.path if uri.startswith("about:blank#") else local_link_path(uri))
+            if path is None:
+                return True
+            text = str(path)
+        action = Gio.SimpleAction.new("copy-link", None)
+        action.connect("activate", lambda *_unused: self.get_clipboard().set(text))
+        menu.append(WebKit.ContextMenuItem.new_from_gaction(action, _("Copy Link"), None))
+        return False
 
     def link_opened(self, _source, result):
         try:
@@ -313,6 +378,7 @@ class Window(Adw.ApplicationWindow):
         self.restore_errors = None
         self.restoring_path = None
         state = load_state(self.state_path)
+        self.zoom = state["zoom"]
         super().__init__(application=app, title="mdview",
                          default_width=state["width"], default_height=state["height"])
         if state["maximized"]:
@@ -386,8 +452,19 @@ class Window(Adw.ApplicationWindow):
             self.add_action(action)
             self.output_actions.append(action)
             menu.append(label, f"win.{name}")
+        self.zoom_actions = {}
+        for name, increase in (("zoom-in", True), ("zoom-out", False)):
+            action = Gio.SimpleAction.new(name, None)
+            action.connect("activate", lambda _action, _parameter, up=increase:
+                           self.set_zoom(step_zoom(self.zoom, up)))
+            self.add_action(action)
+            self.zoom_actions[name] = action
+        zoom_item = Gio.MenuItem.new(None, None)
+        zoom_item.set_attribute_value("custom", GLib.Variant("s", "zoom"))
+        menu.append_item(zoom_item)
         self.menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic",
                                           tooltip_text=_("Main menu"), menu_model=menu)
+        self.menu_button.get_popover().add_child(self.zoom_controls(), "zoom")
         header.pack_end(self.menu_button)
         self.print_operations = set()
         box.append(header)
@@ -412,6 +489,50 @@ class Window(Adw.ApplicationWindow):
         self.add_controller(files_drop)
         self.connect("close-request", self.cleanup)
         self.restore_session()
+
+    def zoom_controls(self):
+        row = Gtk.Box(spacing=4, hexpand=True, halign=Gtk.Align.FILL,
+                      margin_top=2, margin_bottom=2,
+                      margin_start=12, margin_end=12)
+        row.append(Gtk.Label(label=_("Zoom"), xalign=0, hexpand=True))
+        # Text buttons otherwise retain GTK's wider text-button padding. Leave
+        # colors, hover/focus effects and circular shape to the native theme.
+        css = Gtk.CssProvider()
+        css.load_from_data(b"button.mdview-zoom { min-width: 24px; min-height: 24px; "
+                           b"padding: 0; font-weight: normal; }")
+        self.zoom_minus = self.zoom_button("−", "zoom-out", _("Zoom out"), css)
+        row.append(self.zoom_minus)
+        # Reserve enough text width for every percentage, including its % sign.
+        self.zoom_label = Gtk.Label(label=f"{self.zoom}%", width_chars=5, xalign=0.5)
+        row.append(self.zoom_label)
+        self.zoom_plus = self.zoom_button("+", "zoom-in", _("Zoom in"), css)
+        row.append(self.zoom_plus)
+        self.update_zoom_controls()
+        return row
+
+    def zoom_button(self, symbol, action, label, css):
+        button = Gtk.Button(label=symbol, has_frame=False, action_name=f"win.{action}",
+                            tooltip_text=label, valign=Gtk.Align.CENTER)
+        button.add_css_class("circular")
+        button.add_css_class("mdview-zoom")
+        button.get_style_context().add_provider(css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        button.update_property([Gtk.AccessibleProperty.LABEL], [label])
+        return button
+
+    def update_zoom_controls(self):
+        self.zoom_label.set_label(f"{self.zoom}%")
+        self.zoom_actions["zoom-out"].set_enabled(self.zoom > MIN_ZOOM)
+        self.zoom_actions["zoom-in"].set_enabled(self.zoom < MAX_ZOOM)
+
+    def set_zoom(self, zoom):
+        if not valid_zoom(zoom):
+            return
+        changed = zoom != self.zoom
+        self.zoom = zoom
+        self.update_zoom_controls()
+        if changed:
+            for document in self.documents():
+                document.apply_zoom()
 
     def error(self, message):
         if self.restore_errors is not None:
@@ -665,7 +786,11 @@ class Window(Adw.ApplicationWindow):
         if filename is None:
             self.error(_("Only local files are supported."))
             return False
-        path = Path(filename).absolute()
+        try:
+            path = Path(filename).resolve()
+        except (OSError, RuntimeError, ValueError) as exc:
+            self.error(_("Cannot open {name}: {error}").format(name=filename, error=exc))
+            return False
         for index in range(self.tab_view.get_n_pages()):
             page = self.tab_view.get_nth_page(index)
             if page.get_child().path == path:
@@ -727,7 +852,7 @@ class Window(Adw.ApplicationWindow):
     def save_window_state(self):
         width, height = self.get_default_size()
         try:
-            save_state(self.state_path, width, height, self.is_maximized())
+            save_state(self.state_path, width, height, self.is_maximized(), self.zoom)
         except OSError as exc:
             logging.warning(_("Could not save window state: %s"), exc)
 
@@ -741,6 +866,10 @@ class Application(Adw.Application):
         self.set_accels_for_action("win.export-pdf", ["<Primary>e"])
         self.set_accels_for_action("win.find", ["<Primary>f"])
         self.set_accels_for_action("win.print", ["<Primary>p"])
+        # Include the Shift variant explicitly for layouts where '+' needs it.
+        self.set_accels_for_action("win.zoom-in", ["<Primary>plus", "<Primary>equal",
+                                                   "<Primary><Shift>plus", "<Primary>KP_Add"])
+        self.set_accels_for_action("win.zoom-out", ["<Primary>minus", "<Primary>KP_Subtract"])
         for name, shortcuts, callback in (
             ("open", ["<Primary>o"], lambda *_unused: self.window().choose_file()),
             ("new-tab", ["<Primary>t"], lambda *_unused: self.window().choose_file()),
