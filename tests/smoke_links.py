@@ -11,8 +11,8 @@ from unittest.mock import Mock, patch
 
 os.environ["LC_ALL"] = "C.UTF-8"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from mdview.app import Application, Gio, WebKit, Window
-from mdview.recent import load_recent
+from mdviewer.app import Application, Gio, WebKit, Window
+from mdviewer.recent import load_recent
 from gui_helpers import X11Mouse, clipboard_text, javascript, wait_for
 
 
@@ -60,7 +60,7 @@ print("copy still works")
 
 ''' + 'Paragraph.\n\n' * 100 + '# Bottom\n\nEnd.\n')
     app = Application()
-    app.set_application_id("io.github.mdview.LinkTest")
+    app.set_application_id("com.github.jschbe.mdviewer.LinkTest")
     app.register(None)
     window = Window(app)
     window.present()
@@ -113,10 +113,10 @@ print("copy still works")
         decision.ignore.assert_called_once()
         assert not launch.called
 
-    assert copy_link('a[href$="#details"]', str(target)) == target.as_uri().replace('file:', 'mdview:', 1) + '#details'
+    assert copy_link('a[href$="#details"]', str(target)) == target.as_uri().replace('file:', 'mdviewer:', 1) + '#details'
     assert window.tab_view.get_n_pages() == 1
     mouse.click(document, 'a[href$="#details"]')
-    wait_for(lambda: window.active_document.path == target, "Local link did not open in mdview")
+    wait_for(lambda: window.active_document.path == target, "Local link did not open in mdviewer")
     target_view = window.active_document
     wait_for(lambda: not target_view.web.is_loading())
     wait_for(lambda: javascript(target_view, 'window.scrollY') > 1000,

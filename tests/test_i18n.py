@@ -7,9 +7,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from mdview.i18n import gettext, select_language
-from mdview.translations import TRANSLATIONS
-from mdview.render import render
+from mdviewer.i18n import gettext, select_language
+from mdviewer.translations import TRANSLATIONS
+from mdviewer.render import render
 
 
 class TranslationTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class TranslationTests(unittest.TestCase):
         self.assertEqual(select_language({'LANG': 'de_DE', 'LC_ALL': 'C', 'LANGUAGE': 'fr'}), 'en')
 
     def test_catalog_coverage_and_format_fields(self):
-        root = Path(__file__).resolve().parents[1] / 'mdview'
+        root = Path(__file__).resolve().parents[1] / 'mdviewer'
         messages = set()
         for path in root.glob('*.py'):
             tree = ast.parse(path.read_text())
@@ -55,7 +55,7 @@ class TranslationTests(unittest.TestCase):
 
     def test_translated_controls_do_not_translate_document(self):
         for language, label in [('de', 'Kopieren'), ('fr', 'Copier'), ('it', 'Copia'), ('es', 'Copiar'), ('uk', 'Копіювати'), ('en', 'Copy')]:
-            with patch('mdview.i18n.LANGUAGE', language):
+            with patch('mdviewer.i18n.LANGUAGE', language):
                 self.assertEqual(gettext('Copy'), label)
                 self.assertEqual(gettext('Unknown message'), 'Unknown message')
                 document = render('# Open\n\n```\nCopy\n```', Path.cwd())

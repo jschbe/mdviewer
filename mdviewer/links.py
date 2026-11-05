@@ -10,7 +10,7 @@ from urllib.parse import unquote, urlsplit
 def local_link_path(uri: str) -> Path | None:
     try:
         parsed = urlsplit(uri)
-        if (parsed.scheme not in ("file", "mdview") or parsed.netloc not in ("", "localhost")
+        if (parsed.scheme not in ("file", "mdviewer") or parsed.netloc not in ("", "localhost")
                 or parsed.query):
             return None
         filename = unquote(parsed.path, errors="strict")

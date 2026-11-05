@@ -22,9 +22,10 @@ from .recent import load_recent, remember_file  # noqa: E402
 from .render import UnsupportedDocument, read_document, render  # noqa: E402
 from .session import load_session, save_session  # noqa: E402
 from .state import load_state, save_state  # noqa: E402
+from .storage import state_directory  # noqa: E402
 from .zoom import MAX_ZOOM, MIN_ZOOM, step_zoom, valid_zoom  # noqa: E402
 
-APP_ID = "io.github.mdview.Mdview"
+APP_ID = "com.github.jschbe.mdviewer"
 
 
 class FindWindow(Gtk.Window):
@@ -162,7 +163,7 @@ class DocumentView(Gtk.Box):
             self.web.connect("web-process-terminated", lambda *_unused: self.error(_("The renderer stopped. Try Reload."))),
         ]
         self.append(self.web)
-        self.web.load_html(render("# mdview\n\n" + _("Open a Markdown file with **Ctrl+O**."), Path.cwd(), dark=self.style.get_dark()).html, "about:blank")
+        self.web.load_html(render("# mdviewer\n\n" + _("Open a Markdown file with **Ctrl+O**."), Path.cwd(), dark=self.style.get_dark()).html, "about:blank")
 
     def js(self, script, callback=None):
         if not self.closed:
@@ -187,9 +188,9 @@ class DocumentView(Gtk.Box):
                 anchor = None
             web.set_zoom_level(self.window.zoom / 100)
             if anchor is not None:
-                self.js("window.mdviewRestoreZoomPosition(" + json.dumps(anchor) + ")")
+                self.js("window.mdviewerRestoreZoomPosition(" + json.dumps(anchor) + ")")
 
-        self.js("window.mdviewZoomPosition()", position)
+        self.js("window.mdviewerZoomPosition()", position)
 
     def copy_code(self, _manager, value):
         try:
@@ -197,7 +198,7 @@ class DocumentView(Gtk.Box):
             if type(index) is not int or not 0 <= index < len(self.codes):
                 return
             self.get_clipboard().set(self.codes[index])
-            self.js(f"window.mdviewCopied({index})")
+            self.js(f"window.mdviewerCopied({index})")
         except (ValueError, TypeError, GLib.Error):
             self.error(_("Could not copy this code block."))
 
@@ -304,7 +305,7 @@ class DocumentView(Gtk.Box):
                 return True
             if parsed.scheme in ("https", "http", "mailto"):
                 Gio.AppInfo.launch_default_for_uri_async(uri, self.get_display().get_app_launch_context(), None, self.link_opened)
-            elif parsed.scheme in ("file", "mdview") and parsed.netloc in ("", "localhost"):
+            elif parsed.scheme in ("file", "mdviewer") and parsed.netloc in ("", "localhost"):
                 path = local_link_path(uri)
                 if path is None:
                     self.error(_("Only Markdown file links can open here."))
@@ -372,14 +373,14 @@ class DocumentView(Gtk.Box):
 
 class Window(Adw.ApplicationWindow):
     def __init__(self, app):
-        self.state_path = Path(GLib.get_user_state_dir()) / "mdview" / "window.json"
+        self.state_path = state_directory(Path(GLib.get_user_state_dir())) / "window.json"
         self.recent_path = self.state_path.with_name("recent.json")
         self.session_path = self.state_path.with_name("session.json")
         self.restore_errors = None
         self.restoring_path = None
         state = load_state(self.state_path)
         self.zoom = state["zoom"]
-        super().__init__(application=app, title="mdview",
+        super().__init__(application=app, title="mdviewer",
                          default_width=state["width"], default_height=state["height"])
         if state["maximized"]:
             self.maximize()
@@ -394,7 +395,7 @@ class Window(Adw.ApplicationWindow):
                      if button not in ("icon", "menu"))
             for side in layout.split(":")
         ))
-        self.info_button = Gtk.MenuButton(tooltip_text=_("About mdview"), has_frame=False)
+        self.info_button = Gtk.MenuButton(tooltip_text=_("About mdviewer"), has_frame=False)
         icon_path = Path(__file__).resolve().parent.parent / "data" / f"{APP_ID}.svg"
         icon = (Gtk.Image.new_from_file(str(icon_path)) if icon_path.is_file()
                 else Gtk.Image.new_from_icon_name(APP_ID))
@@ -402,7 +403,7 @@ class Window(Adw.ApplicationWindow):
         self.info_button.set_child(icon)
         info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8,
                        margin_top=16, margin_bottom=16, margin_start=24, margin_end=24)
-        title = Gtk.Label(label="mdview")
+        title = Gtk.Label(label="mdviewer")
         title.add_css_class("title-1")
         info.append(title)
         version = Gtk.Label(label=f"v{__version__}")
@@ -468,7 +469,7 @@ class Window(Adw.ApplicationWindow):
         header.pack_end(self.menu_button)
         self.print_operations = set()
         box.append(header)
-        self.heading = Adw.WindowTitle(title="mdview")
+        self.heading = Adw.WindowTitle(title="mdviewer")
         header.set_title_widget(self.heading)
         self.tab_view = Adw.TabView(vexpand=True)
         self.tab_bar = Adw.TabBar(view=self.tab_view, autohide=True)
@@ -498,7 +499,7 @@ class Window(Adw.ApplicationWindow):
         # Text buttons otherwise retain GTK's wider text-button padding. Leave
         # colors, hover/focus effects and circular shape to the native theme.
         css = Gtk.CssProvider()
-        css.load_from_data(b"button.mdview-zoom { min-width: 24px; min-height: 24px; "
+        css.load_from_data(b"button.mdviewer-zoom { min-width: 24px; min-height: 24px; "
                            b"padding: 0; font-weight: normal; }")
         self.zoom_minus = self.zoom_button("−", "zoom-out", _("Zoom out"), css)
         row.append(self.zoom_minus)
@@ -514,7 +515,7 @@ class Window(Adw.ApplicationWindow):
         button = Gtk.Button(label=symbol, has_frame=False, action_name=f"win.{action}",
                             tooltip_text=label, valign=Gtk.Align.CENTER)
         button.add_css_class("circular")
-        button.add_css_class("mdview-zoom")
+        button.add_css_class("mdviewer-zoom")
         button.get_style_context().add_provider(css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         button.update_property([Gtk.AccessibleProperty.LABEL], [label])
         return button
@@ -656,7 +657,7 @@ class Window(Adw.ApplicationWindow):
     def add_document(self, document=None):
         document = document or DocumentView(self)
         page = self.tab_view.append(document)
-        page.set_title(document.path.name if document.path else "mdview")
+        page.set_title(document.path.name if document.path else "mdviewer")
         if document.path:
             page.set_tooltip(str(document.path))
         self.tab_view.set_selected_page(page)
@@ -666,10 +667,10 @@ class Window(Adw.ApplicationWindow):
     def selection_changed(self, *_unused):
         document = self.active_document
         path = document.path if document else None
-        self.heading.set_title(path.name if path else "mdview")
+        self.heading.set_title(path.name if path else "mdviewer")
         self.heading.set_subtitle(str(path.parent) if path else "")
         self.heading.set_tooltip_text(str(path) if path else None)
-        self.set_title(f"{path.name} — mdview" if path else "mdview")
+        self.set_title(f"{path.name} — mdviewer" if path else "mdviewer")
         self.reload_button.set_sensitive(path is not None)
         for action in self.output_actions:
             action.set_enabled(path is not None)
@@ -859,10 +860,14 @@ class Window(Adw.ApplicationWindow):
 
 class Application(Adw.Application):
     def __init__(self):
+        # Match the desktop entry on X11 too (WM_CLASS uses the program name).
+        GLib.set_prgname(APP_ID)
+        GLib.set_application_name("mdviewer")
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_OPEN)
 
     def do_startup(self):
         Adw.Application.do_startup(self)
+        Gtk.Window.set_default_icon_name(APP_ID)
         self.set_accels_for_action("win.export-pdf", ["<Primary>e"])
         self.set_accels_for_action("win.find", ["<Primary>f"])
         self.set_accels_for_action("win.print", ["<Primary>p"])

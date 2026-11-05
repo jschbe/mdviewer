@@ -8,7 +8,7 @@ usage() {
     cat <<'EOF'
 Usage: build.sh [-deb] [-i|-install] [-f|-force] [-h]
 
-Clean old generated files in packaging/ and build a package (Arch by default).
+Clean generated mdviewer files for the selected format and build (Arch by default).
 Debug packages are disabled. By default (no parameters) only build is performed, no install.
 
   -deb         Build a Debian .deb package instead of an Arch package.
@@ -52,27 +52,32 @@ if [[ "$deb" == true && "$install" == true ]] && ! command -v apt >/dev/null 2>&
     exit 1
 fi
 
-# Remove generated package files, keeping PKGBUILD and other source files.
+# Keep the other package format and legacy artifacts available for review.
 shopt -s nullglob
 rm -rf -- packaging/src packaging/pkg
-old_files=(packaging/*.tar packaging/*.tar.* packaging/*.sig packaging/*.log packaging/*.deb)
+old_files=(packaging/mdviewer-*.tar.gz packaging/mdviewer-*.tar.gz.sig packaging/mdviewer-*.log)
+if [[ "$deb" == true ]]; then
+    old_files+=(packaging/mdviewer_*.deb)
+else
+    old_files+=(packaging/mdviewer-*.pkg.tar.*)
+fi
 if ((${#old_files[@]})); then
     rm -f -- "${old_files[@]}"
 fi
 
 make dist
-version=$(python3 -c 'from mdview import __version__; print(__version__)')
+version=$(python3 -c 'from mdviewer import __version__; print(__version__)')
 if [[ "$deb" == true ]]; then
     make test
     package_root="$PWD/packaging/pkg/deb"
-    package_file="$PWD/packaging/mdview_${version}-1_all.deb"
+    package_file="$PWD/packaging/mdviewer_${version}-1_all.deb"
     make DESTDIR="$package_root" PREFIX=/usr install
     mkdir -p "$package_root/DEBIAN"
     chmod 755 "$package_root/DEBIAN"
-    install -Dm644 LICENSE "$package_root/usr/share/doc/mdview/copyright"
+    install -Dm644 LICENSE "$package_root/usr/share/doc/mdviewer/copyright"
     installed_size=$(du -sk "$package_root/usr" | cut -f1)
     cat > "$package_root/DEBIAN/control" <<EOF
-Package: mdview
+Package: mdviewer
 Version: ${version}-1
 Section: text
 Priority: optional
@@ -80,6 +85,9 @@ Architecture: all
 Maintainer: Jochen Schmitt
 Installed-Size: $installed_size
 Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-webkit-6.0, python3-markdown-it, python3-pygments
+Conflicts: mdview
+Replaces: mdview
+Homepage: https://github.com/jschbe/mdviewer
 Description: Simple read-only Markdown viewer for GNOME
  View local Markdown and UTF-8 text files using GTK4, libadwaita and WebKitGTK.
 EOF
@@ -91,7 +99,7 @@ EOF
     exit 0
 fi
 
-cp -- "dist/mdview-${version}.tar.gz" packaging/
+cp -- "dist/mdviewer-${version}.tar.gz" packaging/
 cd packaging
 makepkg -f
 

@@ -10,7 +10,7 @@ from pathlib import Path
 
 os.environ["LC_ALL"] = "C.UTF-8"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from mdview.app import Application, Gio, Window
+from mdviewer.app import Application, Gio, Window
 from gui_helpers import X11Keyboard, javascript, wait_for
 
 
@@ -18,7 +18,7 @@ with tempfile.TemporaryDirectory() as directory:
     root = Path(directory)
     os.environ["XDG_STATE_HOME"] = str(root / "state")
     app = Application()
-    app.set_application_id("io.github.mdview.ZoomKeysTest")
+    app.set_application_id("com.github.jschbe.mdviewer.ZoomKeysTest")
     app.register(None)
     window = Window(app)
     window.present()
@@ -34,14 +34,14 @@ with tempfile.TemporaryDirectory() as directory:
         # WebKit can defer GTK's shortcut dispatch until its key event is
         # declined. Wait for the document's last modifier release as well.
         document = window.active_document
-        javascript(document, '''window.mdviewKeysReleased = false;
+        javascript(document, '''window.mdviewerKeysReleased = false;
           document.addEventListener("keyup", function released(event) {
             if (event.key !== "Control") return;
-            window.mdviewKeysReleased = true;
+            window.mdviewerKeysReleased = true;
             document.removeEventListener("keyup", released);
           }); true''')
         keyboard.shortcut(symbol)
-        wait_for(lambda: javascript(document, "window.mdviewKeysReleased"),
+        wait_for(lambda: javascript(document, "window.mdviewerKeysReleased"),
                  f"WebKit did not finish Ctrl+{symbol}")
 
     for index in range(2):

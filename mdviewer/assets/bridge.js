@@ -9,7 +9,7 @@ document.addEventListener("click", (event) => {
   if (!button || !event.isTrusted) return;
   window.webkit.messageHandlers.copy.postMessage(Number(button.dataset.copy));
 });
-window.mdviewCopied = (index) => {
+window.mdviewerCopied = (index) => {
   const button = document.querySelector(`button[data-copy="${index}"]`);
   if (!button) return;
   button.textContent = button.dataset.copiedLabel;
@@ -17,7 +17,7 @@ window.mdviewCopied = (index) => {
 };
 
 // Keep the same block at the top after WebKit reflows the page at a new zoom.
-window.mdviewZoomPosition = () => {
+window.mdviewerZoomPosition = () => {
   const blocks = [...document.querySelector("main").children];
   let index = 0;
   for (let i = 0; i < blocks.length; i++) {
@@ -27,7 +27,7 @@ window.mdviewZoomPosition = () => {
   const rect = blocks[index]?.getBoundingClientRect();
   return rect ? [index, -rect.top / Math.max(rect.height, 1), window.scrollX] : null;
 };
-window.mdviewRestoreZoomPosition = ([index, offset, x]) => {
+window.mdviewerRestoreZoomPosition = ([index, offset, x]) => {
   requestAnimationFrame(() => {
     const block = document.querySelector("main").children[index];
     if (!block) return;

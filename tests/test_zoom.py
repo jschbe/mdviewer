@@ -3,7 +3,7 @@
 
 import unittest
 
-from mdview.zoom import clamp_zoom, step_zoom, valid_zoom
+from mdviewer.zoom import clamp_zoom, step_zoom, valid_zoom
 
 
 class ZoomTests(unittest.TestCase):

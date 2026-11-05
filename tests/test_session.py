@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mdview.session import load_session, save_session
+from mdviewer.session import load_session, save_session
 
 
 class SessionTests(unittest.TestCase):

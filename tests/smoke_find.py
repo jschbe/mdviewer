@@ -11,7 +11,7 @@ from pathlib import Path
 
 os.environ['LC_ALL'] = 'C.UTF-8'
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from mdview.app import Application, Gio, GLib, Window
+from mdviewer.app import Application, Gio, GLib, Window
 
 
 def wait_for(predicate):
@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory() as directory:
     other = root / 'other.md'
     other.write_text('Different content.\n')
     app = Application()
-    app.set_application_id('io.github.mdview.FindTest')
+    app.set_application_id('com.github.jschbe.mdviewer.FindTest')
     app.register(None)
     window = Window(app)
     window.present()

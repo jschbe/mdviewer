@@ -6,12 +6,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from mdview.render import UnsupportedDocument, local_image, read_document, render
+from mdviewer.render import UnsupportedDocument, local_image, read_document, render
 
 
 class RenderingTests(unittest.TestCase):
     def setUp(self):
-        language = patch("mdview.i18n.LANGUAGE", "en")
+        language = patch("mdviewer.i18n.LANGUAGE", "en")
         language.start()
         self.addCleanup(language.stop)
         self.temp = tempfile.TemporaryDirectory()
@@ -63,7 +63,7 @@ class RenderingTests(unittest.TestCase):
         (self.root / 'a.png').write_bytes(b'image data')
         (self.root / 'b.png').write_bytes(b'image data')
         uri_size = len(local_image('a.png', self.root))
-        with patch('mdview.render.MAX_EMBEDDED_IMAGES', uri_size * 2):
+        with patch('mdviewer.render.MAX_EMBEDDED_IMAGES', uri_size * 2):
             self.assertEqual(render('![](a.png) ![](b.png)', self.root).html.count('<img '), 2)
             for source in ('![](a.png) ' * 3, '![](a.png) ![](b.png) ![](a.png)'):
                 with self.assertRaisesRegex(ValueError, 'total size limit'):
@@ -92,7 +92,7 @@ class RenderingTests(unittest.TestCase):
     def test_heading_ids_and_local_links(self):
         page = render('# Hello\n\n# Hello\n\n[other](other%20file.md)\n\n[jump](#hello)', self.root).html
         self.assertIn('id="hello-1"', page)
-        self.assertIn((self.root / 'other file.md').as_uri().replace('file:', 'mdview:', 1), page)
+        self.assertIn((self.root / 'other file.md').as_uri().replace('file:', 'mdviewer:', 1), page)
         self.assertIn('href="#hello"', page)
 
 

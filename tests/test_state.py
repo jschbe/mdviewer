@@ -6,13 +6,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mdview.state import load_state, save_state
+from mdviewer.state import load_state, save_state
 
 
 class WindowStateTests(unittest.TestCase):
     def test_round_trip_and_replacement(self):
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "mdview" / "window.json"
+            path = Path(directory) / "mdviewer" / "window.json"
             save_state(path, 1100, 800, True)
             self.assertEqual(load_state(path), {"width": 1100, "height": 800, "maximized": True, "zoom": 100})
             save_state(path, 900, 700, False)

@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from mdview.links import local_link_path
-from mdview.render import render
+from mdviewer.links import local_link_path
+from mdviewer.render import render
 
 
 class LinkTests(unittest.TestCase):
@@ -20,11 +20,11 @@ class LinkTests(unittest.TestCase):
                                ("café#%.MARKDOWN", "docs/caf%C3%A9%23%25.MARKDOWN")):
                 target = root / "docs" / name
                 page = render(f"[target]({href})", root).html
-                self.assertIn(f'href="{target.as_uri().replace("file:", "mdview:", 1)}"', page)
+                self.assertIn(f'href="{target.as_uri().replace("file:", "mdviewer:", 1)}"', page)
                 self.assertEqual(local_link_path(target.as_uri() + "#heading"), target)
-                self.assertEqual(local_link_path(target.as_uri().replace("file:", "mdview:", 1)), target)
+                self.assertEqual(local_link_path(target.as_uri().replace("file:", "mdviewer:", 1)), target)
             target = root.parent / "other.md"
-            self.assertIn(target.as_uri().replace("file:", "mdview:", 1) + "#heading",
+            self.assertIn(target.as_uri().replace("file:", "mdviewer:", 1) + "#heading",
                           render("[target](../other.md#heading)", root).html)
             # Query strings must not silently turn into a different local file.
             page = render("[target](other.md?query=1)", root).html
@@ -47,7 +47,7 @@ class LinkTests(unittest.TestCase):
             with patch.object(Path, "resolve", side_effect=RuntimeError("Symlink loop")):
                 page = render("# Source\n\n[target](loop.md)", root).html
                 self.assertIn('id="source"', page)
-                self.assertIn((root / "loop.md").as_uri().replace("file:", "mdview:", 1), page)
+                self.assertIn((root / "loop.md").as_uri().replace("file:", "mdviewer:", 1), page)
                 self.assertIsNone(local_link_path((root / "loop.md").as_uri()))
 
     def test_restricted_schemes_and_invalid_targets(self):
@@ -57,6 +57,6 @@ class LinkTests(unittest.TestCase):
                     "file:///tmp/a%00.md", "file:///tmp/a%FF.md", "file://[bad/a.md"):
             with self.subTest(uri=uri):
                 self.assertIsNone(local_link_path(uri))
-        for uri in ("mdview://remote/tmp/a.md", "mdview:relative.md", "mdview:///tmp/a.svg",
-                    "mdview:///tmp/a%00.md", "mdview:///tmp/a.md?query"):
+        for uri in ("mdviewer://remote/tmp/a.md", "mdviewer:relative.md", "mdviewer:///tmp/a.svg",
+                    "mdviewer:///tmp/a%00.md", "mdviewer:///tmp/a.md?query"):
             self.assertIsNone(local_link_path(uri))

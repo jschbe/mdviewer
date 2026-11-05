@@ -15,8 +15,8 @@ from pathlib import Path
 os.environ["LC_ALL"] = "C.UTF-8"
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from mdview.app import Adw, Application, Gdk, Gio, GLib, Gtk, Window
-from mdview.recent import load_recent
+from mdviewer.app import Adw, Application, Gdk, Gio, GLib, Gtk, Window
+from mdviewer.recent import load_recent
 
 
 def wait_for(predicate, message):
@@ -61,7 +61,7 @@ with tempfile.TemporaryDirectory() as directory:
     binary = root / 'binary.md'
     binary.write_bytes(b'not text\x00')
     app = Application()
-    app.set_application_id('io.github.mdview.TabTest')
+    app.set_application_id('com.github.jschbe.mdviewer.TabTest')
     app.register(None)
     window = Window(app)
     window.present()
@@ -140,7 +140,7 @@ with tempfile.TemporaryDirectory() as directory:
     window.close_current_tab()
     assert window.tab_view.get_n_pages() == 1
     assert window.active_document.path is None and not window.tab_bar.get_tabs_revealed()
-    assert window.heading.get_title() == 'mdview' and window.heading.get_subtitle() == ''
+    assert window.heading.get_title() == 'mdviewer' and window.heading.get_subtitle() == ''
     assert not window.reload_button.get_sensitive()
     assert second_view.closed and third_view.closed
     # Repeated open/close must release both the view and its WebKit child.

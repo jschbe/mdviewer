@@ -11,8 +11,8 @@ from pathlib import Path
 
 os.environ["LC_ALL"] = "C.UTF-8"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from mdview.app import Adw, Application, Gio, Gtk, Window
-from mdview.state import load_state
+from mdviewer.app import Adw, Application, Gio, Gtk, Window
+from mdviewer.state import load_state
 from gui_helpers import javascript, wait_for
 
 
@@ -24,7 +24,7 @@ with tempfile.TemporaryDirectory() as directory:
     for file in files:
         file.write_text(source + "Paragraph for scrolling.\n\n" * 200)
     app = Application()
-    app.set_application_id("io.github.mdview.ZoomTest")
+    app.set_application_id("com.github.jschbe.mdviewer.ZoomTest")
     app.register(None)
     window = Window(app)
     window.present()
@@ -144,10 +144,10 @@ with tempfile.TemporaryDirectory() as directory:
     at_zoom(100)
     baseline = sizes()
     javascript(document, "window.scrollTo(0, 700); true")
-    anchor = javascript(document, "window.mdviewZoomPosition()")
+    anchor = javascript(document, "window.mdviewerZoomPosition()")
     window.set_zoom(200)
     at_zoom(200)
-    wait_for(lambda: javascript(document, "window.mdviewZoomPosition()")[0] == anchor[0],
+    wait_for(lambda: javascript(document, "window.mdviewerZoomPosition()")[0] == anchor[0],
              "Zoom moved away from the visible paragraph")
     assert all(abs(after / before - 2) < 0.1 for before, after in zip(baseline, sizes()))
     # Reload and theme changes retain the window zoom.

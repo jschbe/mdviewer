@@ -1,29 +1,31 @@
-# mdview
+# mdviewer
+
+Version 1.4.0. Repository: [jschbe/mdviewer](https://github.com/jschbe/mdviewer).
 
 A small, read-only Markdown viewer for GNOME, built with Python, GTK4,
 libadwaita and WebKitGTK 6.0. No editor, accounts, telemetry or services.
 
 The application interface supports English, German, French, Italian, Spanish and Ukrainian.
-mdview automatically uses the system language, with English as the default when
+mdviewer automatically uses the system language, with English as the default when
 the system language is not supported. Document contents are not translated.
 
 ## License
 
 Copyright © 2026 Jochen Schmitt. Developed with Codex.
 
-mdview is free software: you can redistribute it and/or modify it under the terms
+mdviewer is free software: you can redistribute it and/or modify it under the terms
 of the GNU General Public License as published by the Free Software Foundation,
 either version 3 of the License, or (at your option) any later version
 (`GPL-3.0-or-later`).
 
-mdview is distributed without any warranty, including the implied warranties of
+mdviewer is distributed without any warranty, including the implied warranties of
 merchantability or fitness for a particular purpose. See [LICENSE](LICENSE) for
 the full GNU GPL text. It is included in source archives and installed at
-`/usr/share/licenses/mdview/LICENSE` by the Arch package.
+`/usr/share/licenses/mdviewer/LICENSE` by the Arch package.
 
 ## Desktop compatibility
 
-mdview is designed for GNOME, but does not require the GNOME desktop itself.
+mdviewer is designed for GNOME, but does not require the GNOME desktop itself.
 It should also run under XFCE and other Linux desktop environments when the
 following runtime dependencies are installed:
 
@@ -35,8 +37,8 @@ following runtime dependencies are installed:
 
 GTK 4 can be installed alongside GTK 3; the desktop can continue using GTK 3.
 GTK 2 or GTK 3 alone is not sufficient. Older distributions must provide the
-required libraries. mdview retains its Adwaita appearance on other desktops.
-The `.deb` package was installed with `apt` and successfully tested for startup
+required libraries. mdviewer retains its Adwaita appearance on other desktops.
+The earlier `mdview` `.deb` package was installed with `apt` and successfully tested for startup
 and Markdown display in an Ubuntu 24.04 XFCE virtual machine. This setup required
 the AppArmor profile below and `GTK_THEME=Adwaita` to avoid incompatible theme
 warnings.
@@ -45,20 +47,20 @@ warnings.
 
 Ubuntu 24.04 restricts unprivileged user namespaces through AppArmor. If startup
 fails with `bwrap: setting up uid map: Permission denied` and AppArmor denials
-appear in the kernel log, allow mdview to create its WebKit sandbox using an
-application-specific profile. For the installed `/usr/bin/mdview` launcher,
-create `/etc/apparmor.d/mdview` with:
+appear in the kernel log, allow mdviewer to create its WebKit sandbox using an
+application-specific profile. For the installed `/usr/bin/mdviewer` launcher,
+create `/etc/apparmor.d/mdviewer` with:
 
 ```text
 abi <abi/4.0>,
 include <tunables/global>
 
-profile mdview /usr/bin/mdview flags=(unconfined) {
+profile mdviewer /usr/bin/mdviewer flags=(unconfined) {
     userns,
 }
 ```
 
-Load it with `sudo apparmor_parser -r /etc/apparmor.d/mdview`, then start mdview
+Load it with `sudo apparmor_parser -r /etc/apparmor.d/mdviewer`, then start mdviewer
 as your normal user. This keeps the system-wide restriction and WebKit sandbox
 enabled. See the [Ubuntu release notes](https://discourse.ubuntu.com/t/ubuntu-24-04-lts-noble-numbat-release-notes/39890)
 for background. The profile currently needs to be installed manually.
@@ -66,28 +68,34 @@ for background. The profile currently needs to be installed manually.
 Similar sandbox startup failures may occur on Debian or other distributions if
 custom AppArmor policies or system settings restrict unprivileged user namespaces.
 
-If GTK reports incompatible theme CSS, try `GTK_THEME=Adwaita mdview`.
+If GTK reports incompatible theme CSS, try `GTK_THEME=Adwaita mdviewer`.
 In the tested VM, EGL/DRI warnings about unavailable 3D acceleration did not
 prevent Markdown display.
 
 ### Windows / WSL
 
-mdview has been successfully tested on Windows with Debian under WSL.
+The earlier `mdview` release was successfully tested on Windows with Debian under WSL.
+The renamed 1.4.0 package still needs the manual checks listed below on WSLg.
 Use WSL 2 with WSLg to display the Linux application window on the Windows
 desktop; a full GNOME or XFCE desktop is not required. See Microsoft's
 [Linux GUI apps in WSL guide](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps)
 for setup requirements.
 
 Inside Debian, install the built `.deb` package with `apt` so that missing
-dependencies are installed automatically, then launch mdview:
+dependencies are installed automatically, then launch mdviewer:
 
 ```sh
-sudo apt install ./mdview_<version>-1_all.deb
-mdview
+sudo apt install ./mdviewer_<version>-1_all.deb
+mdviewer
 ```
 
 Replace `<version>` with the package version and run the command from the
 directory containing the package.
+
+**Legacy Windows Explorer wrapper (pending separate adaptation):** the example
+below is preserved unchanged and still calls the removed `mdview` command.
+Use `mdviewer` from the Linux shell for now; adapt and test the wrapper separately
+after installing the new Debian package.
 
 To open Markdown files directly from Windows Explorer, create
 `C:\Users\<username>\cmd\mdview.cmd` with:
@@ -116,9 +124,9 @@ or pip environment are needed. WebKitGTK is the largest dependency.
 ## Run from this checkout
 
 ```sh
-python -m mdview README.md
+python -m mdviewer README.md
 # or
-./bin/mdview README.md
+./bin/mdviewer README.md
 # or open the file chooser after launch
 make run
 ```
@@ -179,8 +187,8 @@ Open tabs, their order and the active tab are saved when closing the window or
 quitting with **Ctrl+Q**, then restored on the next launch. Missing, unreadable or
 unsupported files are skipped and listed together in an error dialog; the other
 files still open. Files passed on the command line open alongside the restored
-tabs. The session is stored in `$XDG_STATE_HOME/mdview/session.json` (normally
-`~/.local/state/mdview/session.json`). Delete it to reset the saved tabs, or close
+tabs. The session is stored in `$XDG_STATE_HOME/mdviewer/session.json` (normally
+`~/.local/state/mdviewer/session.json`). Delete it to reset the saved tabs, or close
 all tabs before quitting to start with an empty session. Scroll positions are
 not saved across restarts.
 GNOME's light/dark preference is followed automatically. Each fenced code block
@@ -192,21 +200,31 @@ This is a basic content check, not a complete file-format detector. Rejected fil
 leave the current document and recent-file history unchanged.
 
 The window's normal size, maximized state and zoom are restored on launch. State is
-saved to `$XDG_STATE_HOME/mdview/window.json` (normally
-`~/.local/state/mdview/window.json`) on close or Ctrl+Q. With multiple windows,
+saved to `$XDG_STATE_HOME/mdviewer/window.json` (normally
+`~/.local/state/mdviewer/window.json`) on close or Ctrl+Q. With multiple windows,
 the last closed window wins; Ctrl+Q saves the active window. Missing or invalid
 state falls back to the default size and 100% zoom. Previously saved integer zoom
 values below 50% or above 300% are clamped to the nearest boundary on restoration.
 Delete this file to reset the window.
 
-Recent files are saved separately to `$XDG_STATE_HOME/mdview/recent.json`
-(normally `~/.local/state/mdview/recent.json`) and shared by all mdview windows.
+Recent files are saved separately to `$XDG_STATE_HOME/mdviewer/recent.json`
+(normally `~/.local/state/mdviewer/recent.json`) and shared by all mdviewer windows.
 The order is always most recently opened to oldest. Explicitly reopening a file,
 including one already in a tab, moves it to the front. Automatic reloads and
 session restoration do not change the history. Restored tabs retain their saved
 tab order, independently of this history.
 Delete this file to clear the history. Missing files show an error when selected
 and leave the current document visible.
+
+On first launch after the rename, if `$XDG_STATE_HOME/mdviewer` does not exist,
+the application copies `window.json`, `session.json` and `recent.json` from the
+legacy `$XDG_STATE_HOME/mdview` directory (normally `~/.local/state/mdview`).
+The original files remain unchanged. An existing `mdviewer` state directory is
+authoritative and is never merged with or overwritten by legacy state. A failed
+copy logs a warning and uses the legacy directory in place until migration can
+succeed. Package removal and `make uninstall` leave both state directories alone.
+To reset state without reimporting the old session, keep an empty `mdviewer`
+state directory instead of deleting the directory itself.
 
 Each document's parent directory is monitored, including atomic file replacements,
 even when its tab is inactive.
@@ -242,9 +260,12 @@ python tests/smoke_pdf.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_gui.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_tabs.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_session.py
+GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_i18n.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_find.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_pdf.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_zoom.py
+# Desktop/window identity check additionally needs xprop on X11:
+GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_desktop.py
 # Trusted mouse/link integration test additionally needs X11 and libXtst:
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_links.py
 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory xvfb-run -a python tests/smoke_zoom_keys.py
@@ -255,13 +276,22 @@ The packaging test also uses `make`, `tar` and `install`, and skips itself if
 these tools are unavailable. It builds a source archive and stages installation
 in a temporary directory, including paths with spaces; it does not install on
 the system.
+After building, validate both artifacts without installing (requires runtime
+libraries, `bsdtar` for Arch and `dpkg-deb` for Debian):
+
+```sh
+python tests/check_packages.py packaging/mdviewer-1.4.0-1-any.pkg.tar.zst packaging/mdviewer_1.4.0-1_all.deb
+```
+
+The desktop integration test checks the application ID, desktop entry, CLI and
+default icon, plus the actual X11 window class and GTK application ID on X11.
 The integration test checks the actual WebKit message bridge, desktop clipboard,
 atomic-save monitoring, scroll preservation, theme updates and CSP script blocking.
 It temporarily changes the clipboard.
 The tab integration test checks single/multiple-tab layouts, file locations,
 independent scrolling and monitoring, duplicate/invalid opens, and memory release
 when closing tabs.
-The session integration test covers restored tab order and selection, closed tabs,
+The session integration test covers legacy-state migration, restored tab order and selection, closed tabs,
 unchanged recent-file history, and errors for files that can no longer be opened.
 The Find integration test covers first/next matches, wrapping, missing matches,
 tab changes and search-window cleanup.
@@ -303,9 +333,11 @@ sudo pacman -S --needed dpkg
 This additional package is only needed for `.deb` builds. Build on Arch without
 `-i`; install the resulting `.deb` on the target Debian-based system.
 
-Run `build.sh` as your normal user. It removes old generated archives, signatures,
-logs, `.deb` files and the `src/` and `pkg/` build directories from `packaging/`,
-preserving `PKGBUILD`. It builds an Arch package by default; `-deb` selects a
+Run `build.sh` as your normal user. It removes generated `mdviewer` source archives,
+logs, packages of the selected format and the `src/` and `pkg/` build directories
+from `packaging/`, preserving `PKGBUILD`, legacy package artifacts and the other
+package format. You can build Arch and then Debian and validate both outputs.
+It builds an Arch package by default; `-deb` selects a
 Debian package instead. Without `-i`, it builds without installing. The script
 stops if any command fails and can be invoked from any working directory.
 The PKGBUILD disables separate debug packages, including when debug builds are
@@ -314,7 +346,7 @@ enabled in your system's `makepkg` configuration.
 ```sh
 ./build.sh -i       # Build and install; skip an already installed version.
 ./build.sh -i -f    # Build and install, even if the same version is installed.
-./build.sh -deb     # Build packaging/mdview_<version>-1_all.deb.
+./build.sh -deb     # Build packaging/mdviewer_1.4.0-1_all.deb.
 ./build.sh -deb -i  # Build the .deb and install it with sudo apt install.
 ./build.sh -h       # Show help without building or installing.
 ```
@@ -332,46 +364,100 @@ It runs the unit tests and packages the application, desktop entry, icon and GPL
 license without creating a debug package. The package declares its runtime
 dependencies, including `python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1` and
 `gir1.2-webkit-6.0`; the target distribution must provide these packages.
-To install a built package manually, use `sudo apt install ./packaging/mdview_<version>-1_all.deb`.
+To install a built package manually, use `sudo apt install ./packaging/mdviewer_<version>-1_all.deb`.
 
 To run the build and installation steps manually:
 
 ```sh
 make dist
-cp dist/mdview-1.2.2.tar.gz packaging/
+cp dist/mdviewer-1.4.0.tar.gz packaging/
 cd packaging
 makepkg -f
-sudo pacman -U --needed mdview-1.2.2-1-any.pkg.tar.zst
+sudo pacman -U --needed mdviewer-1.4.0-1-any.pkg.tar.zst
 ```
 
 The PKGBUILD uses a locally generated source archive (hence `SKIP` for its checksum).
-Release versions in `mdview/__init__.py` and `packaging/PKGBUILD` match the Git tag
-without its `v` prefix (version `1.2.2` corresponds to tag `v1.2.2`). `make dist` reads the application
-version automatically. For future releases, update both version fields and these
-example commands, build and test, then tag the release commit as `vX.Y.Z`.
+The source and package version is `1.4.0`; Debian uses package revision `1.4.0-1`
+and Arch uses `pkgver=1.4.0`, `pkgrel=1`. `make dist` reads the application version
+automatically and creates `dist/mdviewer-1.4.0.tar.gz`. Historical tags are
+unchanged: the earlier `v1.3.0` tag contained source/package version `1.2.2`.
+For future releases, update both version fields and these example commands,
+build and test, then create the corresponding `vX.Y.Z` tag when releasing.
 It runs the unit tests before packaging. It installs the command, assets, desktop
 entry and icon under `/usr`; pacman's desktop integration hooks update the caches.
 After installation:
 
 ```sh
-mdview README.md
-# Optional: choose mdview as the default Markdown application.
-xdg-mime default io.github.mdview.Mdview.desktop text/markdown
+mdviewer README.md
+# Optional: choose mdviewer as the default Markdown application.
+xdg-mime default com.github.jschbe.mdviewer.desktop text/markdown
+xdg-mime default com.github.jschbe.mdviewer.desktop text/x-markdown
 ```
 
 The desktop entry advertises `text/markdown` and `text/x-markdown` for Nautilus's
-Open With menu. No new MIME definition is needed. To remove: `sudo pacman -R mdview`.
+Open With menu. No new MIME definition is needed. To remove: `sudo pacman -R mdviewer`.
+For Debian packages, use `sudo apt remove mdviewer`.
+
+### Upgrade from mdview
+
+Close all old application windows before upgrading so they save their final session.
+The new command and Python module are `mdviewer`; no `mdview` command or import
+alias is installed. Update Linux scripts that call the old command.
+The application ID, desktop file and icon use `com.github.jschbe.mdviewer`.
+
+The Arch package declares `conflicts=('mdview')` and `replaces=('mdview')`.
+For a local package, use `sudo pacman -U ./packaging/mdviewer-1.4.0-1-any.pkg.tar.zst`
+and accept removal of the conflicting `mdview` package. Repository upgrades can
+use the replacement metadata. The Debian package declares `Conflicts: mdview`
+and `Replaces: mdview`; use `sudo apt install ./packaging/mdviewer_1.4.0-1_all.deb`
+and review the proposed removal of `mdview`. Neither package claims to provide
+the old command. Unchanged runtime dependencies are installed by the package manager.
+Removing the old package removes its owned launcher, icon, command and code;
+the new package installs a single desktop entry, including when the old package
+already used the new application ID.
+
+For a direct installation, `sudo make PREFIX=/usr install` removes the obsolete
+`mdview` command, installed code, license/documentation and both old desktop IDs
+from that same prefix. Use `sudo make PREFIX=/usr uninstall` to remove a direct
+installation, using the original `PREFIX`. Remove a package-managed installation
+with its package manager before switching to a direct installation. Files under
+another prefix (for example `/usr/local`) or user-local desktop entries are not
+removed automatically; remove those through their original installation method.
+Saved state in both application directories is retained on upgrades and uninstall.
+
+Rerun both MIME association commands above if the old app was your default,
+and unpin/re-pin any launcher that used an old desktop entry. On Ubuntu, an
+AppArmor profile for `/usr/bin/mdview` does not cover `/usr/bin/mdviewer`; update
+the manually installed profile to the path shown above and reload it. The package
+does not edit local AppArmor profiles or Windows Explorer wrappers.
+
 For inspecting the installation without changing the system:
 
 ```sh
-make DESTDIR=/tmp/mdview-stage PREFIX=/usr install
+make DESTDIR=/tmp/mdviewer-stage PREFIX=/usr install
 ```
+
+### Manual checks after installation
+
+On Arch, confirm the package manager removed `mdview`, then launch `mdviewer`
+from a terminal, the application menu and a Markdown file's Open With menu.
+Check there is one launcher with the correct icon and window grouping. The About
+popup should show `mdviewer` and `v1.4.0`. Verify MIME defaults, paths with spaces,
+multiple files/tabs, heading links, Copy Code/Copy Link, Find, live reload and
+light/dark themes. Change zoom, reorder tabs, quit and relaunch to confirm state
+restoration. Export a PDF and preview/cancel printing before testing a real printer.
+
+On Debian/WSLg, install the `.deb` with `apt`, confirm removal of `mdview`, and run
+the same document/state checks from the Debian shell using `mdviewer`. Also check
+WSLg's window icon, scaling and clipboard to Windows. Test desktop/MIME launchers
+where available in that environment. Windows CMD/Explorer integration is a
+separate follow-up; its unchanged legacy example above still uses `mdview`.
 
 ## Design and security
 
-`mdview/app.py` owns GTK actions, WebKit, monitoring and the clipboard.
-`mdview/render.py` is independent of GTK and transforms Markdown into a complete
-HTML document. `mdview/assets/` contains the stylesheet and small bundled bridge.
+`mdviewer/app.py` owns GTK actions, WebKit, monitoring and the clipboard.
+`mdviewer/render.py` is independent of GTK and transforms Markdown into a complete
+HTML document. `mdviewer/assets/` contains the stylesheet and small bundled bridge.
 markdown-it-py handles CommonMark plus tables and strikethrough; Pygments supplies
 local syntax highlighting. There is no CDN or JavaScript highlighting framework.
 
@@ -386,7 +472,7 @@ local syntax highlighting. There is no CDN or JavaScript highlighting framework.
 - WebKit uses an ephemeral session, disables local storage and file access, denies
   permission requests, and intercepts navigation. Only user-clicked HTTP/HTTPS/mail
   links are handed to the desktop; only Markdown local links reopen in the viewer.
-  The renderer rewrites local links to an internal `mdview:` URI so they reach
+  The renderer rewrites local links to an internal `mdviewer:` URI so they reach
   the existing navigation policy without granting WebKit access to local files.
 - Copy messages carry a validated block index, not an arbitrary clipboard payload.
   Python copies the corresponding original code. There are no line numbers.
@@ -402,14 +488,12 @@ local syntax highlighting. There is no CDN or JavaScript highlighting framework.
 Editing/saving, navigation history, remote images, raw HTML,
 SVG, math, Mermaid, task-list checkboxes, full GFM autolinking,
 watching image changes, and AppStream/store publishing metadata.
-The app ID is a working identifier and should be changed to a namespace owned by
-the publisher before public distribution.
 
 ## Project layout
 
 ```text
-bin/mdview
-mdview/
+bin/mdviewer
+mdviewer/
   __init__.py
   __main__.py
   app.py
@@ -424,8 +508,8 @@ mdview/
     bridge.js
     style.css
 data/
-  io.github.mdview.Mdview.desktop
-  io.github.mdview.Mdview.svg
+  com.github.jschbe.mdviewer.desktop
+  com.github.jschbe.mdviewer.svg
 packaging/PKGBUILD
 tests/
   test_render.py
@@ -434,6 +518,8 @@ tests/
   test_session.py
   test_storage.py
   test_packaging.py
+  check_packages.py
+  smoke_desktop.py
   smoke_gui.py
   smoke_tabs.py
   smoke_session.py

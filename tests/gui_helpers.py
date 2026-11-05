@@ -6,7 +6,7 @@
 import json
 import time
 
-from mdview.app import GLib
+from mdviewer.app import GLib
 
 
 def wait_for(predicate, message="GUI test timed out"):
@@ -108,7 +108,7 @@ class X11Keyboard(X11Mouse):
 
     def __init__(self, window):
         super().__init__(window)
-        from mdview.app import Gtk
+        from mdviewer.app import Gtk
 
         self.key_releases = []
         self.key_controller = Gtk.EventControllerKey()
@@ -126,7 +126,7 @@ class X11Keyboard(X11Mouse):
                                                self.ctypes.c_int, self.ctypes.c_ulong]
 
     def shortcut(self, symbol):
-        from mdview.app import Gdk
+        from mdviewer.app import Gdk
 
         keyval = Gdk.keyval_from_name(symbol)
         keycode = self.x11.XKeysymToKeycode(self.display, keyval)

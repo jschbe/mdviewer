@@ -13,7 +13,7 @@ from pathlib import Path
 os.environ["LC_ALL"] = "C.UTF-8"
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from mdview.app import Adw, Application, Gio, GLib, Gtk, Window
+from mdviewer.app import Adw, Application, Gio, GLib, Gtk, Window
 
 
 def wait_for(predicate):
@@ -32,11 +32,11 @@ with tempfile.TemporaryDirectory() as directory:
     root = Path(directory)
     os.environ['XDG_STATE_HOME'] = str(root / 'state')
     source = root / 'Test document.md'
-    text = '# PDF export test\n\nGrüße from mdview.\n\n```python\nprint("PDF code")\n```\n\n'
+    text = '# PDF export test\n\nGrüße from mdviewer.\n\n```python\nprint("PDF code")\n```\n\n'
     text += 'A paragraph for pagination.\n\n' * 150
     source.write_text(text)
     app = Application()
-    app.set_application_id('io.github.mdview.PdfTest')
+    app.set_application_id('com.github.jschbe.mdviewer.PdfTest')
     app.register(None)
     window = Window(app)
     window.present()

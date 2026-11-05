@@ -11,14 +11,14 @@ from pathlib import Path
 os.environ["LC_ALL"] = "C.UTF-8"
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from mdview.app import Adw, Application, Gio, GLib, WebKit, Window
+from mdviewer.app import Adw, Application, Gio, GLib, WebKit, Window
 
 temporary = tempfile.TemporaryDirectory()
 os.environ["XDG_STATE_HOME"] = temporary.name
 path = Path(temporary.name) / "smoke.md"
 path.write_text('# Smoke\n\n```python\nprint("日本語")\n```\n\n' + 'Paragraph.\n\n' * 150)
 app = Application()
-app.set_application_id("io.github.mdview.SmokeTest")
+app.set_application_id("com.github.jschbe.mdviewer.SmokeTest")
 state = {"phase": 0, "ok": False}
 
 
@@ -86,6 +86,6 @@ def check_reload():
 
 app.connect("activate", activated)
 GLib.timeout_add_seconds(20, lambda: fail("GUI smoke test timed out"))
-app.run(["mdview-smoke"])
+app.run(["mdviewer-smoke"])
 temporary.cleanup()
 raise SystemExit(0 if state["ok"] else 1)

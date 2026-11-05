@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=mdview
+Name=mdviewer
 GenericName=Markdown Viewer
 GenericName[de]=Markdown-Betrachter
 GenericName[fr]=Visionneuse Markdown
@@ -13,12 +13,13 @@ Comment[fr]=Lire des documents Markdown
 Comment[it]=Leggi documenti Markdown
 Comment[es]=Leer documentos Markdown
 Comment[uk]=Перегляд документів Markdown
-Exec=mdview %F
-Icon=io.github.mdview.Mdview
+Exec=mdviewer %F
+Icon=com.github.jschbe.mdviewer
 Terminal=false
 Categories=GNOME;GTK;Utility;Viewer;
 MimeType=text/markdown;text/x-markdown;
 StartupNotify=true
+StartupWMClass=com.github.jschbe.mdviewer
 Keywords=Markdown;Read;Document;
 Keywords[de]=Markdown;Lesen;Dokument;
 Keywords[fr]=Markdown;Lire;Document;

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mdview.recent import MAX_RECENT, load_recent, remember_file
+from mdviewer.recent import MAX_RECENT, load_recent, remember_file
 
 
 class RecentFilesTests(unittest.TestCase):

@@ -17,8 +17,8 @@ if len(sys.argv) == 1:
     raise SystemExit(0)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from mdview.app import Application, Gio, GLib, Window
-from mdview.i18n import LANGUAGE, gettext
+from mdviewer.app import Application, Gio, GLib, Window
+from mdviewer.i18n import LANGUAGE, gettext
 
 expected = {
     'de': ('Öffnen', 'Als PDF exportieren', 'Suchen', 'Drucken', 'Kopiert'),
@@ -53,7 +53,7 @@ with tempfile.TemporaryDirectory() as directory:
     path = Path(directory) / 'Open.md'
     path.write_text('# Open\n\n```\nCopy\n```')
     app = Application()
-    app.set_application_id('io.github.mdview.LanguageTest')
+    app.set_application_id('com.github.jschbe.mdviewer.LanguageTest')
     app.register(None)
     window = Window(app)
     window.present()
@@ -73,7 +73,7 @@ with tempfile.TemporaryDirectory() as directory:
     def done(web, value, _data):
         result.append(web.evaluate_javascript_finish(value).to_string())
 
-    document.js('window.mdviewCopied(0); document.querySelector("button[data-copy]").textContent', done)
+    document.js('window.mdviewerCopied(0); document.querySelector("button[data-copy]").textContent', done)
     wait_for(lambda: bool(result))
     assert result == [labels[4]], result
     assert document.codes == ['Copy\n'] and window.heading.get_title() == 'Open.md'

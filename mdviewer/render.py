@@ -134,7 +134,7 @@ def render(source: str, directory: Path, *, dark: bool = False) -> Document:
                     # Defer symlink resolution/validation to navigation: a bad
                     # target must not prevent the source document from opening.
                     target = Path(abspath(directory / unquote(uri.path))).as_uri()
-                    target = target.replace("file:", "mdview:", 1)
+                    target = target.replace("file:", "mdviewer:", 1)
                     child.attrSet("href", target + (f"?{uri.query}" if uri.query else "")
                                   + (f"#{uri.fragment}" if uri.fragment else ""))
     used_ids = set()
